@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# SaturnZap — pre-commit hook
+# Runs the security scanner on staged Python files.
+# Blocks commit if CRITICAL or HIGH severity findings are detected.
+#
+# Install: cp hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# Or:      cd .git/hooks && ln -sf ../../hooks/pre-commit pre-commit
+
+set -euo pipefail
+
+PROFILE="security/profiles/saturnzap.yaml"
+SCANNER="security/security_scan.py"
+PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+
+# Collect staged .py files (excludes deleted files)
+STAGED_PY=$(git diff --cached --name-only --diff-filter=ACMR -- '*.py')
+
+if [[ -z "$STAGED_PY" ]]; then
+    echo "pre-commit: no staged Python files — skipping security scan"
+    exit 0
+fi
+
+# Check that scanner and profile exist
+if [[ ! -f "$PROJECT_ROOT/$SCANNER" ]]; then
+    echo "pre-commit: scanner not found at $SCANNER — skipping"
+    exit 0
+fi
+
+if [[ ! -f "$PROJECT_ROOT/$PROFILE" ]]; then
+    echo "pre-commit: profile not found at $PROFILE — skipping"
+    exit 0
+fi
+
+echo "pre-commit: running security scan on $(echo "$STAGED_PY" | wc -w) staged file(s)..."
+
+# Run the scanner with --files for staged-only scanning
+# shellcheck disable=SC2086
+python "$PROJECT_ROOT/$SCANNER" \
+    --profile "$PROJECT_ROOT/$PROFILE" \
+    --files $STAGED_PY
+
+EXIT_CODE=$?
+
+if [[ $EXIT_CODE -ne 0 ]]; then
+    echo ""
+    echo "══════════════════════════════════════════════════════════════"
+    echo "  COMMIT BLOCKED — security scan found CRITICAL/HIGH issues"
+    echo "  Fix the findings above, then try again."
+    echo "══════════════════════════════════════════════════════════════"
+    echo ""
+    exit 1
+fi
+
+exit 0
