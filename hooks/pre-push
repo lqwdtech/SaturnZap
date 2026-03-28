@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# SaturnZap — pre-push hook
+# Reminds the developer to update the GitHub project board and wiki.
+# Blocks push if the developer has not confirmed.
+#
+# Setup: git config core.hooksPath hooks
+
+set -euo pipefail
+
+REPO="ShoneAnstey/SaturnZap"
+PROJECT_URL="https://github.com/users/ShoneAnstey/projects/8"
+WIKI_URL="https://github.com/$REPO/wiki"
+CHECKLIST_FILE="/tmp/.saturnzap-push-checklist"
+
+# Get the commits being pushed (local commits not yet on remote)
+REMOTE="$1"
+RANGE=""
+while read -r LOCAL_SHA REMOTE_SHA REF; do
+    if [[ "$REMOTE_SHA" == "0000000000000000000000000000000000000000" ]]; then
+        RANGE="$LOCAL_SHA"
+    else
+        RANGE="$REMOTE_SHA..$LOCAL_SHA"
+    fi
+done
+
+if [[ -z "$RANGE" ]]; then
+    exit 0
+fi
+
+# Check if any commits touch src/ or significant code
+CODE_CHANGES=$(git diff --name-only "$RANGE" -- 'src/*.py' 'tests/*.py' 2>/dev/null || true)
+
+if [[ -z "$CODE_CHANGES" ]]; then
+    exit 0
+fi
+
+# Check if the checklist was completed recently (within last 5 minutes)
+if [[ -f "$CHECKLIST_FILE" ]]; then
+    CHECKLIST_AGE=$(( $(date +%s) - $(stat -c %Y "$CHECKLIST_FILE" 2>/dev/null || echo 0) ))
+    if [[ $CHECKLIST_AGE -lt 300 ]]; then
+        exit 0
+    fi
+fi
+
+echo ""
+echo "══════════════════════════════════════════════════════════════"
+echo "  SaturnZap — Pre-Push Checklist"
+echo "══════════════════════════════════════════════════════════════"
+echo ""
+echo "  You are pushing code changes. Please confirm:"
+echo ""
+echo "  1. GitHub Project board updated?"
+echo "     $PROJECT_URL"
+echo ""
+echo "  2. Wiki pages updated (if applicable)?"
+echo "     $WIKI_URL"
+echo ""
+echo "  3. Related issue(s) referenced in commit message?"
+echo "     e.g. 'Closes #1' or 'Refs #2'"
+echo ""
+echo "══════════════════════════════════════════════════════════════"
+echo ""
+
+# If running in a non-interactive terminal (CI, scripts), skip the prompt
+if [[ ! -t 0 ]]; then
+    echo "  (non-interactive — skipping confirmation)"
+    exit 0
+fi
+
+read -r -p "  Have you completed the checklist? [y/N] " REPLY
+echo ""
+
+if [[ "$REPLY" =~ ^[Yy]$ ]]; then
+    touch "$CHECKLIST_FILE"
+    echo "  ✅ Proceeding with push."
+    exit 0
+else
+    echo "  ❌ Push cancelled. Update the board/wiki first."
+    echo "     To skip: git push --no-verify"
+    exit 1
+fi

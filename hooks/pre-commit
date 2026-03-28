@@ -1,18 +1,44 @@
 #!/usr/bin/env bash
 # SaturnZap — pre-commit hook
-# Runs the security scanner on staged Python files.
+# 1. Checks that docs/ or README.md are updated alongside code changes.
+# 2. Runs the security scanner on staged Python files.
 # Blocks commit if CRITICAL or HIGH severity findings are detected.
 #
-# Install: cp hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
-# Or:      cd .git/hooks && ln -sf ../../hooks/pre-commit pre-commit
+# Setup: git config core.hooksPath hooks
 
 set -euo pipefail
 
+PROJECT_ROOT="$(git rev-parse --show-toplevel)"
 PROFILE="security/profiles/saturnzap.yaml"
 SCANNER="security/security_scan.py"
-PROJECT_ROOT="$(git rev-parse --show-toplevel)"
 
-# Collect staged .py files (excludes deleted files)
+# ── Documentation check ──────────────────────────────────────────
+# If src/ code is staged, require docs/ or README.md to also be staged.
+
+STAGED_SRC=$(git diff --cached --name-only --diff-filter=ACMR -- 'src/*.py' 2>/dev/null || true)
+STAGED_DOCS=$(git diff --cached --name-only --diff-filter=ACMR -- 'docs/*' 'README.md' 2>/dev/null || true)
+
+if [[ -n "$STAGED_SRC" && -z "$STAGED_DOCS" ]]; then
+    echo ""
+    echo "══════════════════════════════════════════════════════════════"
+    echo "  COMMIT BLOCKED — documentation not updated"
+    echo ""
+    echo "  You are committing changes to src/ but neither docs/ nor"
+    echo "  README.md have been staged."
+    echo ""
+    echo "  Update the relevant docs then:"
+    echo "    git add docs/ README.md"
+    echo ""
+    echo "  To skip this check (emergency only):"
+    echo "    git commit --no-verify"
+    echo "══════════════════════════════════════════════════════════════"
+    echo ""
+    exit 1
+fi
+
+# ── Security scan ────────────────────────────────────────────────
+# Only runs when .py files are staged.
+
 STAGED_PY=$(git diff --cached --name-only --diff-filter=ACMR -- '*.py')
 
 if [[ -z "$STAGED_PY" ]]; then
