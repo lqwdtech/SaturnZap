@@ -1,0 +1,44 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    environment: pypi
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Test
+        run: uv run pytest tests/ -v
+
+      - name: Build
+        run: uv build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Upload ldk-node wheel to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            vendor/ldk_node-0.7.0-py3-none-any.whl
+            dist/*.whl
+            dist/*.tar.gz

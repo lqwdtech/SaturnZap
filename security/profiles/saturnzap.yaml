@@ -1,0 +1,25 @@
+# SaturnZap — Security Scan Profile
+# Used by: security/security_scan.py --profile security/profiles/saturnzap.yaml
+
+name: saturnzap
+
+static:
+  # Ruff linting target
+  ruff_target: "src/saturnzap/"
+
+  # Bandit security analysis target
+  bandit_target: "src/saturnzap/"
+
+  # Optional bandit config (leave empty for defaults)
+  bandit_config: ""
+
+# CVEs that have been reviewed and accepted (e.g. no fix available, not exploitable)
+# These are system-level packages, NOT in the SaturnZap venv.
+# Our venv has: cryptography==46.0.6 (fixed), pygments==2.19.2 (fixed), no requests.
+accepted_risks:
+  - cve: "CVE-2026-34073"
+    reason: "System cryptography==46.0.5 — venv has 46.0.6 (patched)"
+  - cve: "CVE-2026-4539"
+    reason: "System pygments==2.17.2 — venv has 2.19.2 (not vulnerable)"
+  - cve: "CVE-2026-25645"
+    reason: "System requests==2.32.5 — not a SaturnZap dependency"

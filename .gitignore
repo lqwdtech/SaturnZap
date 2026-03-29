@@ -9,7 +9,9 @@ CLAUDE.md
 # Local-only directories
 plans/
 memory/
-security/
+
+# Security scanner reports (generated, not committed)
+security/reports/
 
 # Python
 __pycache__/
