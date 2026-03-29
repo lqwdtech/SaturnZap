@@ -1,8 +1,15 @@
-# SaturnZap ⚡
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="logos/SaturnZap%20White%20logo%20Transparent%20bg.svg">
+    <source media="(prefers-color-scheme: light)" srcset="logos/SaturnZap%20Main%20Logo%20Transparent%20bg.svg">
+    <img alt="SaturnZap" src="logos/SaturnZap%20Main%20Logo%20Transparent%20bg.svg" width="400">
+  </picture>
+</p>
 
-**A CLI-first, non-custodial Lightning Network wallet built for autonomous AI agents.**
-
-Ultra-lightweight. Self-sovereign. No full Bitcoin node required.
+<p align="center">
+  <strong>A CLI-first, non-custodial Lightning Network wallet built for autonomous AI agents.</strong><br>
+  Ultra-lightweight. Self-sovereign. No full Bitcoin node required.
+</p>
 
 ```bash
 sz init
@@ -22,6 +29,17 @@ payments, and autonomously pays for L402-gated APIs.
 
 SaturnZap is a CLI tool. It is not a hosted wallet, not a custodial service, and not a
 web application. Keys live on the agent's machine. The agent IS the Lightning node.
+
+**Two ways to integrate:**
+- **CLI** — call `sz` commands from any language, parse JSON from stdout
+- **MCP Server** — connect AI agents directly via Model Context Protocol (stdio)
+
+> **Documentation:** See the [docs/](docs/) folder for detailed guides on
+> [getting started](docs/getting-started.md),
+> [configuration](docs/configuration.md),
+> [MCP server integration](docs/mcp-server.md),
+> [architecture](docs/architecture.md), and
+> [JSON API reference](docs/json-api-reference.md).
 
 ---
 
@@ -60,18 +78,22 @@ the infrastructure is the business.
 
 - **Non-custodial** — BIP39 seed lives encrypted on the agent's machine. SaturnZap never
   holds, transmits, or has access to private keys.
-- **No full Bitcoin node** — Neutrino (BIP157/158 compact block filters) provides chain
-  data with a footprint under 50MB. Same approach used by production mobile Lightning wallets.
+- **No full Bitcoin node** — Esplora REST API provides chain data with automatic fallback
+  (mempool.space → blockstream.info). No bitcoind required.
 - **Peer-agnostic** — Open channels to any Lightning node. LQWD is a smart default with
   global reach, but the agent controls its own peer relationships entirely.
 - **JSON-first** — Every command writes structured JSON to stdout. Errors go to stderr.
   Designed for machine consumption from day one.
+- **MCP-native** — Built-in MCP server exposes 20 tools over stdio. Connect Claude,
+  Cursor, VS Code, or any MCP-compatible agent with a single config block.
 - **Autonomous** — No interactive prompts. No human confirmation flows. Designed to run
   inside agent runtimes, shell scripts, and orchestration pipelines.
 
 ---
 
 ## Architecture
+
+> Full architecture details: [docs/architecture.md](docs/architecture.md)
 
 ### Component Map
 
@@ -201,6 +223,8 @@ Signet/testnet node details maintained separately for development.
 ---
 
 ## CLI Reference
+
+> Full JSON API reference: [docs/json-api-reference.md](docs/json-api-reference.md)
 
 **Binary:** `sz`
 
@@ -394,10 +418,16 @@ enforce a global per-request spending cap on L402 payments.
 /
 ├── README.md
 ├── LICENSE                        # MIT
-├── CLAUDE.md                      # AI agent development instructions
 ├── pyproject.toml                 # Package definition, sz entry point
 ├── uv.lock
 ├── .env.example                   # Environment variable template
+│
+├── docs/
+│   ├── getting-started.md         # Installation and first-run guide
+│   ├── configuration.md           # Config file and env var reference
+│   ├── mcp-server.md              # MCP server setup and tool reference
+│   ├── architecture.md            # Design decisions and component map
+│   └── json-api-reference.md      # Full JSON shapes for all commands
 │
 ├── src/
 │   └── saturnzap/
@@ -442,9 +472,10 @@ enforce a global per-request spending cap on L402 payments.
 │   ├── pre-commit
 │   └── pre-push
 │
-└── plans/
-    ├── phase1-plan.md             # Phase 1 implementation plan
-    └── next-steps.md
+└── .github/
+    └── workflows/
+        ├── ci.yml                 # Lint + test on push/PR
+        └── publish.yml            # PyPI publish on version tags
 ```
 
 ---
@@ -492,48 +523,54 @@ uv pip install saturnzap --find-links https://github.com/ShoneAnstey/SaturnZap/r
 
 ## Development Phases
 
-### Phase 1 — Node Foundation
+### Phase 1 — Node Foundation ✅
 
 `sz init`, `sz start`, `sz stop`, `sz status`
 
-BIP39 seed generation, encrypted storage, LDK Node startup, Neutrino sync on signet,
-auto-peer with nearest LQWD signet node, JSON output infrastructure.
+BIP39 seed generation, encrypted storage, LDK Node startup, Esplora chain sync on
+signet, auto-peer with nearest LQWD signet node, JSON output infrastructure.
 
-Detailed implementation plan: `plans/phase1-plan.md`
+### Phase 2 — Channel Management ✅
 
-### Phase 2 — Channel Management
-
-`sz channels`, `sz peers`
+`sz channels`, `sz peers`, `sz address`, `sz balance`
 
 Open channels to any node. LQWD LSP-assisted channel opens. LQWD node directory
-embedded. Channel list and close.
+embedded (18 regions, timezone-based auto-selection). Channel list and close.
 
-### Phase 3 — Payments
+### Phase 3 — Payments ✅
 
 `sz invoice`, `sz pay`, `sz keysend`, `sz transactions`
 
-Full BOLT11 send and receive. Keysend. Transaction history.
+Full BOLT11 send and receive. Variable-amount invoices. Keysend. Transaction history
+with sorting and pagination.
 
-### Phase 4 — L402
+### Phase 4 — L402 ✅
 
 `sz fetch`
 
 HTTP client with 402 detection, invoice extraction, auto-pay, request retry.
 Per-request spending caps. Token caching to avoid re-paying the same resource.
 
-### Phase 5 — Liquidity Intelligence
+### Phase 5 — Liquidity Intelligence ✅
 
 `sz liquidity`
 
-Channel health monitoring. Auto-open when outbound runs low. Inbound requests via LQWD.
-Geography-aware peer selection across 18 LQWD regions.
+Channel health monitoring with 0-100 scoring. Actionable recommendations.
+Inbound liquidity requests via LQWD. Geography-aware peer selection across 18 regions.
 
-### Phase 6 — Packaging and Release
+### Phase 6 — Packaging and Integration ✅
 
-`pip install saturnzap` / `uv add saturnzap`
+`pip install saturnzap` / `uv add saturnzap` / `sz mcp`
 
-PyPI release. GitHub Actions CI. Docker image. Signet → testnet → mainnet.
-Config documentation. MCP server. OpenClaw skill on ClawHub.
+MCP server with 20 tools. Esplora fallback chain. GitHub Actions CI/CD.
+PyPI packaging. OpenClaw skill definition. Security scanner (Grade A+).
+
+### Upcoming
+
+- PyPI publish (trusted publisher workflow ready)
+- Docker image
+- OpenClaw ClawHub listing
+- Network progression (signet → testnet → mainnet)
 
 ---
 

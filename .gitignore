@@ -3,6 +3,9 @@
 # Agent/dev instructions
 CLAUDE.md
 
+# WSL Zone.Identifier metadata files
+*:Zone.Identifier
+
 # Environment secrets
 .env
 

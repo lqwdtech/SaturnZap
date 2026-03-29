@@ -1,0 +1,214 @@
+# Getting Started
+
+This guide walks you through installing SaturnZap, initializing your Lightning node,
+funding it, and making your first payment.
+
+---
+
+## Prerequisites
+
+- **OS**: Linux (Ubuntu 22.04+ recommended)
+- **Python**: 3.12 or later
+- **Package manager**: [uv](https://docs.astral.sh/uv/) (recommended) or pip
+
+---
+
+## Installation
+
+### From source (recommended during development)
+
+```bash
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env
+
+# Clone and install
+git clone https://github.com/ShoneAnstey/SaturnZap.git
+cd SaturnZap
+uv venv
+source .venv/bin/activate
+uv sync
+
+# Verify
+sz --help
+```
+
+### From PyPI
+
+```bash
+# ldk-node is not yet on PyPI — use --find-links for the vendored wheel
+pip install saturnzap \
+  --find-links https://github.com/ShoneAnstey/SaturnZap/releases/latest/download/
+
+# Or with uv
+uv pip install saturnzap \
+  --find-links https://github.com/ShoneAnstey/SaturnZap/releases/latest/download/
+```
+
+---
+
+## Quick Start
+
+### 1. Set your passphrase
+
+The passphrase encrypts your seed on disk. Set it as an environment variable so
+SaturnZap doesn't prompt interactively (important for agent use):
+
+```bash
+export SZ_PASSPHRASE="your-secure-passphrase"
+```
+
+Or add it to a `.env` file in your working directory:
+
+```
+SZ_PASSPHRASE=your-secure-passphrase
+```
+
+### 2. Initialize the wallet
+
+```bash
+sz init
+```
+
+Output:
+
+```json
+{
+  "status": "ok",
+  "mnemonic": "abandon ability able about above ... (24 words)",
+  "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b...",
+  "seed_path": "/home/agent/.local/share/saturnzap/seed.enc",
+  "message": "Wallet initialized. WRITE DOWN YOUR MNEMONIC AND STORE IT SAFELY."
+}
+```
+
+> **Important:** Back up your 24-word mnemonic. It is the only way to recover your
+> funds if the seed file is lost.
+
+### 3. Fund the wallet
+
+Get a receive address:
+
+```bash
+sz address
+```
+
+```json
+{
+  "status": "ok",
+  "address": "tb1q...",
+  "network": "signet"
+}
+```
+
+For signet, use a faucet like [signetfaucet.com](https://signetfaucet.com) or
+[alt.signetfaucet.com](https://alt.signetfaucet.com) to send test coins.
+
+Check your balance (wait for chain sync):
+
+```bash
+sz balance
+```
+
+### 4. Open a channel
+
+Open a channel to any Lightning node:
+
+```bash
+sz channels open --peer <pubkey>@<host>:9735 --amount-sats 100000
+```
+
+Or use the LQWD LSP (auto-selects the nearest of 18 global nodes):
+
+```bash
+sz channels open --lsp lqwd --amount-sats 100000
+```
+
+### 5. Make a payment
+
+Pay a BOLT11 invoice:
+
+```bash
+sz pay --invoice lnbc1...
+```
+
+With a spending cap for safety:
+
+```bash
+sz pay --invoice lnbc1... --max-sats 500
+```
+
+### 6. Fetch an L402 resource
+
+SaturnZap auto-detects HTTP 402 responses, pays the embedded Lightning invoice, and
+retries the request:
+
+```bash
+sz fetch https://api.example.com/paid-data --max-sats 100
+```
+
+---
+
+## Check Node Status
+
+```bash
+sz status
+```
+
+```json
+{
+  "status": "ok",
+  "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b...",
+  "is_running": true,
+  "network": "signet",
+  "block_height": 297000,
+  "block_hash": "00000000..."
+}
+```
+
+---
+
+## Stop the Node
+
+```bash
+sz stop
+```
+
+The node will restart automatically on the next command that requires it.
+
+---
+
+## For AI Agent Runtimes
+
+SaturnZap requires no interactive input. Set `SZ_PASSPHRASE` in the environment and
+all commands work non-interactively.
+
+For **MCP-compatible agents** (Claude Desktop, Cursor, VS Code), see the
+[MCP Server Guide](mcp-server.md) — no CLI wrapping needed.
+
+For **OpenClaw agents**, the `saturnzap` skill is available. See `skills/saturnzap/SKILL.md`.
+
+---
+
+## Pretty Output
+
+For human-readable JSON in a terminal:
+
+```bash
+sz --pretty balance
+```
+
+Or set the environment variable:
+
+```bash
+export SZ_PRETTY=1
+```
+
+---
+
+## Next Steps
+
+- [Configuration Reference](configuration.md) — config file, environment variables, networks
+- [MCP Server Guide](mcp-server.md) — connect AI agents via Model Context Protocol
+- [JSON API Reference](json-api-reference.md) — full output shapes for all commands
+- [Architecture](architecture.md) — design decisions and component overview

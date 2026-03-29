@@ -1,0 +1,148 @@
+# Configuration
+
+SaturnZap uses three configuration sources, checked in this order:
+
+1. **Environment variables** — highest priority
+2. **`.env` file** — loaded automatically from the working directory
+3. **Config file** — `config.toml` in the OS config directory
+
+---
+
+## Config File
+
+Location (Linux): `~/.config/saturnzap/config.toml`
+
+The config file is optional. SaturnZap works with sensible defaults out of the box.
+
+### Example `config.toml`
+
+```toml
+network = "signet"
+esplora_url = "https://mempool.space/signet/api"
+```
+
+### Fields
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `network` | string | `"signet"` | Bitcoin network: `signet`, `testnet`, `regtest`, or `bitcoin` |
+| `esplora_url` | string | `"https://mempool.space/signet/api"` | Esplora REST API endpoint. Overrides the fallback chain. |
+
+### Liquidity Config
+
+Liquidity thresholds are in the same file:
+
+```toml
+[liquidity]
+outbound_threshold_percent = 20
+inbound_threshold_percent = 20
+auto_open_enabled = false
+```
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `liquidity.outbound_threshold_percent` | int | `20` | Warn when outbound capacity drops below this percentage |
+| `liquidity.inbound_threshold_percent` | int | `20` | Warn when inbound capacity drops below this percentage |
+| `liquidity.auto_open_enabled` | bool | `false` | Auto-open channels when thresholds are breached (future) |
+
+---
+
+## Environment Variables
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `SZ_PASSPHRASE` | Decrypt the seed file. Required for all node operations. | — (prompts if unset) |
+| `SZ_PRETTY` | Set to `1` for pretty-printed JSON output. | `0` |
+| `SZ_REGION` | Force a specific LQWD region (e.g. `JP`, `CA`, `US`). | Auto-detect from timezone |
+| `SZ_MCP_MAX_SPEND_SATS` | Global per-request spending cap for MCP `l402_fetch` tool. | No limit |
+| `XDG_DATA_HOME` | Override the data directory base path. | `~/.local/share` |
+| `XDG_CONFIG_HOME` | Override the config directory base path. | `~/.config` |
+
+### `.env` File
+
+SaturnZap loads `.env` from the current directory on startup using `python-dotenv`.
+This is convenient for development and agent runtimes:
+
+```bash
+# .env
+SZ_PASSPHRASE=your-secure-passphrase
+SZ_PRETTY=0
+SZ_REGION=CA
+```
+
+---
+
+## Data Directory
+
+Location (Linux): `~/.local/share/saturnzap/`
+
+Contents:
+
+| Path | Description |
+|---|---|
+| `seed.enc` | AES-encrypted BIP39 mnemonic (Fernet) |
+| `seed.salt` | PBKDF2 salt for key derivation |
+| `ldk/` | LDK Node state (channels, peers, chain data) |
+| `l402_tokens/` | Cached L402 authentication tokens |
+| `node.active` | Flag file indicating the node should be running |
+
+All files are created automatically on `sz init`.
+
+### Permissions
+
+`seed.enc` and `seed.salt` are set to `0600` (owner read/write only).
+
+---
+
+## Esplora Fallback Chain
+
+SaturnZap probes Esplora endpoints in order and uses the first healthy one. This
+ensures the node can sync even if one provider is down.
+
+**Default fallback order per network:**
+
+| Network | Endpoints |
+|---|---|
+| `signet` | `mempool.space/signet/api` → `blockstream.info/signet/api` |
+| `testnet` | `mempool.space/testnet/api` → `blockstream.info/testnet/api` |
+| `bitcoin` | `mempool.space/api` → `blockstream.info/api` |
+
+**Health check:** `GET /blocks/tip/height` with a 3-second timeout. First HTTP 200 wins.
+
+**Config override:** If you set `esplora_url` in `config.toml`, that URL is used
+unconditionally with no probing.
+
+To use your own Esplora server:
+
+```toml
+esplora_url = "https://your-esplora.example.com/api"
+```
+
+---
+
+## Networks
+
+SaturnZap supports four Bitcoin networks:
+
+| Network | Use Case | Config Value |
+|---|---|---|
+| **Signet** | Development and testing (default) | `"signet"` |
+| **Testnet** | Integration testing | `"testnet"` |
+| **Regtest** | Local development | `"regtest"` |
+| **Bitcoin** | Production (mainnet) | `"bitcoin"` |
+
+> **Warning:** Do not use `"bitcoin"` (mainnet) until SaturnZap has been thoroughly
+> tested on signet and testnet. The default is `"signet"` for safety.
+
+---
+
+## Encryption Details
+
+The BIP39 mnemonic is encrypted at rest using:
+
+- **KDF:** PBKDF2-HMAC-SHA256, 600,000 iterations
+- **Cipher:** Fernet (AES-128-CBC + HMAC-SHA256)
+- **Salt:** 16 bytes, randomly generated per wallet
+
+The passphrase is never stored on disk. It must be provided via `SZ_PASSPHRASE` or
+interactive prompt on every node start.
