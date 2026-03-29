@@ -6,6 +6,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+import httpx
 from platformdirs import user_config_dir, user_data_dir
 
 APP_NAME = "saturnzap"
@@ -15,6 +16,45 @@ DEFAULT_NETWORK = "signet"
 
 # Public signet Esplora endpoint
 DEFAULT_ESPLORA_URL = "https://mempool.space/signet/api"
+
+# Fallback Esplora endpoints per network.  Probed in order; first healthy wins.
+ESPLORA_FALLBACKS: dict[str, list[str]] = {
+    "signet": [
+        "https://mempool.space/signet/api",
+        "https://blockstream.info/signet/api",
+    ],
+    "testnet": [
+        "https://mempool.space/testnet/api",
+        "https://blockstream.info/testnet/api",
+    ],
+    "bitcoin": [
+        "https://mempool.space/api",
+        "https://blockstream.info/api",
+    ],
+}
+
+
+def resolve_esplora(network: str, config_override: str | None = None) -> str:
+    """Return the best reachable Esplora URL for *network*.
+
+    1. If *config_override* is set (user wrote ``esplora_url`` in config.toml),
+       use it unconditionally — no probing.
+    2. Otherwise probe each URL in ``ESPLORA_FALLBACKS[network]`` with a 3 s
+       timeout on ``GET /blocks/tip/height``.
+    3. If none respond, return the first URL anyway (LDK retries internally).
+    """
+    if config_override:
+        return config_override
+
+    urls = ESPLORA_FALLBACKS.get(network, ESPLORA_FALLBACKS["signet"])
+    for url in urls:
+        try:
+            r = httpx.get(f"{url}/blocks/tip/height", timeout=3.0)
+            if r.status_code == 200:
+                return url
+        except httpx.HTTPError:
+            continue
+    return urls[0]
 
 
 def data_dir() -> Path:

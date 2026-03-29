@@ -90,14 +90,15 @@ the infrastructure is the business.
 │  liquidity.py   — channel health, recommendations       │
 │  keystore.py    — BIP39 seed, encrypted at rest         │
 │  lqwd.py        — LQWD 18-region node directory         │
-│  config.py      — config paths, defaults, TOML loader   │
+│  config.py      — config paths, Esplora fallback chain  │
+│  mcp_server.py  — MCP server (Model Context Protocol)   │
 │  output.py      — JSON formatting, TTY detection        │
 └───────────────────────┬─────────────────────────────────┘
                         │
 ┌───────────────────────▼─────────────────────────────────┐
 │                    LDK Node                             │
 │  - Full Lightning protocol implementation               │
-│  - Neutrino chain sync (no full Bitcoin node)           │
+│  - Esplora chain sync (fallback: mempool + blockstream) │
 │  - BIP39 key management                                 │
 │  - Peer connections and channel state machine           │
 └──────────────┬────────────────────────┬─────────────────┘
@@ -112,11 +113,13 @@ the infrastructure is the business.
 
 ### Key Design Decisions
 
-#### Neutrino chain sync
+#### Esplora chain sync with fallback
 
-LDK Node includes Neutrino support internally. No external Bitcoin node is needed. First
-sync takes a few minutes on a fresh install; subsequent starts are near-instant. Storage
-footprint stays well under 50MB.
+LDK Node syncs chain data via Esplora (block explorer REST API). No external Bitcoin
+node is needed. SaturnZap ships with a fallback chain — if the primary Esplora server
+is unreachable, it automatically probes alternatives (mempool.space, blockstream.info)
+and connects to the first healthy endpoint. First sync takes a few minutes on a fresh
+install; subsequent starts are near-instant.
 
 #### LQWD as default LSP
 
@@ -159,7 +162,8 @@ configured LSP when needed. Agents can run indefinitely without manual intervent
 | Key encryption | cryptography | Fernet encryption for seed file |
 | BIP39 | mnemonic | Seed phrase generation |
 | Package manager | uv | Fast, modern Python tooling |
-| Testing | pytest | Unit tests, 77 tests |
+| MCP server | mcp ≥1.26 | Model Context Protocol for AI agent integration |
+| Testing | pytest | Unit tests, 95 tests |
 | Linting | ruff | Fast Python linter and formatter |
 
 ---
@@ -274,6 +278,38 @@ sz liquidity status
 sz liquidity request-inbound --amount-sats 500000
 ```
 
+### MCP Server
+
+```bash
+sz mcp                           # Start MCP server on stdio (for AI agent integration)
+```
+
+Or use the standalone entry point:
+
+```bash
+sz-mcp                           # Same as sz mcp
+```
+
+**Agent configuration** (Claude Desktop, Cursor, VS Code, etc.):
+
+```json
+{
+  "mcpServers": {
+    "saturnzap": {
+      "command": "sz",
+      "args": ["mcp"],
+      "env": {
+        "SZ_PASSPHRASE": "your-passphrase"
+      }
+    }
+  }
+}
+```
+
+The MCP server exposes 20 tools covering node lifecycle, wallet, peers, channels,
+payments, L402 fetch, and liquidity management. Set `SZ_MCP_MAX_SPEND_SATS` to
+enforce a global per-request spending cap on L402 payments.
+
 ---
 
 ## JSON Output Format
@@ -373,7 +409,8 @@ sz liquidity request-inbound --amount-sats 500000
 │       ├── liquidity.py           # Channel health scoring + recommendations
 │       ├── keystore.py            # BIP39 seed, Fernet encryption
 │       ├── lqwd.py                # LQWD node directory (18 regions)
-│       ├── config.py              # Config paths, defaults, TOML loader
+│       ├── config.py              # Config paths, Esplora fallback, TOML loader
+│       ├── mcp_server.py          # MCP server — 20 tools for AI agents
 │       └── output.py              # JSON output, TTY detection, --pretty
 │
 ├── tests/
@@ -383,7 +420,9 @@ sz liquidity request-inbound --amount-sats 500000
 │   ├── test_liquidity.py
 │   ├── test_lqwd.py
 │   ├── test_output.py
-│   └── test_payments.py
+│   ├── test_payments.py
+│   ├── test_config.py
+│   └── test_mcp_server.py
 │
 ├── skills/
 │   └── saturnzap/
@@ -493,7 +532,7 @@ Geography-aware peer selection across 18 LQWD regions.
 `pip install saturnzap` / `uv add saturnzap`
 
 PyPI release. GitHub Actions CI. Docker image. Signet → testnet → mainnet.
-Config documentation. Optional MCP wrapper. OpenClaw skill on ClawHub.
+Config documentation. MCP server. OpenClaw skill on ClawHub.
 
 ---
 

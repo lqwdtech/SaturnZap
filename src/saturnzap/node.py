@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from ldk_node import Builder, Network, Node, default_config
 
-from saturnzap.config import data_dir, load_config
+from saturnzap.config import data_dir, load_config, resolve_esplora
 
 _node: Node | None = None
 
@@ -31,8 +31,9 @@ def _network_from_str(name: str) -> Network:
 def build_node(mnemonic: str) -> Node:
     """Configure and build an LDK Node instance (does not start it)."""
     cfg = load_config()
-    network = _network_from_str(cfg.get("network", "signet"))
-    esplora_url = cfg.get("esplora_url", "https://mempool.space/signet/api")
+    network_name = cfg.get("network", "signet")
+    network = _network_from_str(network_name)
+    esplora_url = resolve_esplora(network_name, cfg.get("esplora_url"))
 
     config = default_config()
     builder = Builder.from_config(config)
