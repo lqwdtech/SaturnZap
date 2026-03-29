@@ -467,6 +467,17 @@ def fetch(
     output.ok(**resp)
 
 
+# ── MCP Server ──────────────────────────────────────────────────
+
+
+@app.command()
+def mcp() -> None:
+    """Start the MCP (Model Context Protocol) server on stdio."""
+    from saturnzap.mcp_server import serve
+
+    serve()
+
+
 # ── Helpers ──────────────────────────────────────────────────────
 
 

@@ -457,6 +457,7 @@ enforce a global per-request spending cap on L402 payments.
 | **Editor** | VS Code via Remote SSH |
 | **Python** | 3.12 |
 | **Network** | Bitcoin signet (preferred — more predictable than testnet3) |
+| **Chain source** | Esplora REST API with automatic fallback chain |
 | **LQWD nodes** | 18 regions, pubkeys embedded in `src/saturnzap/lqwd.py` |
 
 ### Droplet Setup

@@ -61,7 +61,7 @@ echo "pre-commit: running security scan on $(echo "$STAGED_PY" | wc -w) staged f
 
 # Run the scanner with --files for staged-only scanning
 # shellcheck disable=SC2086
-python "$PROJECT_ROOT/$SCANNER" \
+python3 "$PROJECT_ROOT/$SCANNER" \
     --profile "$PROJECT_ROOT/$PROFILE" \
     --files $STAGED_PY
 

@@ -25,6 +25,7 @@ dependencies = [
     "ldk-node",
     "python-dotenv>=1.2.2",
     "httpx>=0.28.1",
+    "mcp>=1.26",
 ]
 
 [project.urls]
@@ -37,6 +38,7 @@ ldk-node = { path = "vendor/ldk_node-0.7.0-py3-none-any.whl" }
 
 [project.scripts]
 sz = "saturnzap.cli:main_cli"
+sz-mcp = "saturnzap.mcp_server:serve"
 
 [build-system]
 requires = ["hatchling"]
