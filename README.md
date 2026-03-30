@@ -236,7 +236,8 @@ All commands output JSON to stdout. Errors exit with code 1, written to stderr.
 sz init                          # Generate seed, start node, peer with nearest LQWD node
 sz setup                         # Guided first-run: init + address (idempotent)
 sz setup --auto                  # Non-interactive: init + address + request inbound from LQWD
-sz start                         # Start the node daemon
+sz start                         # Start the node (verify connectivity, then exit)
+sz start --daemon                # Keep node running in foreground (for systemd)
 sz stop                          # Stop the node daemon
 sz stop --close-all              # Cooperatively close all channels, then stop
 sz status                        # Node pubkey, sync state, peer/channel counts

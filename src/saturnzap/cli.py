@@ -193,12 +193,40 @@ def setup(
 
 
 @app.command()
-def start() -> None:
+def start(
+    daemon: Annotated[
+        bool,
+        typer.Option(
+            "--daemon",
+            help="Keep node running in the foreground (for systemd/services).",
+        ),
+    ] = False,
+) -> None:
     """Start the Lightning node, verify connectivity, and exit."""
+    import signal
+    import time
+
     from saturnzap import node as node_mod
 
     n = node_mod._require_node()
     output.ok(pubkey=n.node_id(), message="Node started.")
+
+    if daemon:
+        # Block forever — systemd sends SIGTERM to stop
+        stop_event = False
+
+        def _handle_signal(signum, frame):  # noqa: ARG001
+            nonlocal stop_event
+            stop_event = True
+
+        signal.signal(signal.SIGTERM, _handle_signal)
+        signal.signal(signal.SIGINT, _handle_signal)
+
+        while not stop_event:
+            time.sleep(1)
+
+        node_mod.stop()
+        raise SystemExit(0)
 
 
 @app.command()

@@ -58,14 +58,18 @@ def test_peer_droplet():
 class _DropletSSH:
     """Simple SSH command runner for droplet testing."""
 
+    _SZ_BIN = "/root/saturnzap/.venv/bin/sz"
+
     def __init__(self, host: str):
         self.host = host
 
     def run(self, cmd: str, timeout: int = 30) -> str:
         """Run a command on the droplet and return stdout."""
+        # Source /etc/environment for SZ_PASSPHRASE and other env vars
+        wrapped = f"source /etc/environment 2>/dev/null; {cmd}"
         result = subprocess.run(  # noqa: S603
             ["ssh", "-o", "StrictHostKeyChecking=no",  # noqa: S607
-             f"root@{self.host}", cmd],
+             f"root@{self.host}", wrapped],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -77,5 +81,20 @@ class _DropletSSH:
     def sz(self, args: str, timeout: int = 30) -> dict:
         """Run an sz command and parse JSON output."""
         import json
-        out = self.run(f"sz {args}", timeout=timeout)
+        out = self.run(f"{self._SZ_BIN} {args}", timeout=timeout)
         return json.loads(out)
+
+    def start_daemon(self) -> None:
+        """Start sz in daemon mode (background) so it listens on 9735."""
+        self.run(
+            f"nohup {self._SZ_BIN} start --daemon "
+            "> /tmp/sz-daemon.log 2>&1 & sleep 3",
+            timeout=15,
+        )
+
+    def stop_daemon(self) -> None:
+        """Stop the sz daemon process."""
+        import contextlib
+
+        with contextlib.suppress(RuntimeError):
+            self.run("pkill -f 'sz start --daemon'; sleep 1; true")

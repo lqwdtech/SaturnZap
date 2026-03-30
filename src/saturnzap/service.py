@@ -60,7 +60,7 @@ def generate_unit(passphrase_env: bool = True) -> str:
             env_lines.append(f"Environment={var}={val}")
 
     sz_path = _find_sz_executable()
-    exec_start = f"{sz_path} start"
+    exec_start = f"{sz_path} start --daemon"
 
     return _UNIT_TEMPLATE.format(
         exec_start=exec_start,
