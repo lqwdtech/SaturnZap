@@ -1,0 +1,159 @@
+"""Tests for saturnzap.service — systemd service generator."""
+
+from __future__ import annotations
+
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from saturnzap import service
+
+
+@pytest.fixture(autouse=True)
+def _clean_env(monkeypatch):
+    """Clean env vars that affect unit generation."""
+    monkeypatch.delenv("SZ_REGION", raising=False)
+    monkeypatch.delenv("SZ_ESPLORA_URL", raising=False)
+    monkeypatch.delenv("SZ_MCP_MAX_SPEND_SATS", raising=False)
+
+
+# ── generate_unit ────────────────────────────────────────────────
+
+
+def test_generate_unit_contains_exec_start(monkeypatch):
+    monkeypatch.setenv("SZ_PASSPHRASE", "testpass")
+    content = service.generate_unit()
+    assert "ExecStart=" in content
+    assert "start" in content
+
+
+def test_generate_unit_contains_restart():
+    content = service.generate_unit(passphrase_env=False)
+    assert "Restart=on-failure" in content
+    assert "RestartSec=10" in content
+
+
+def test_generate_unit_includes_passphrase(monkeypatch):
+    monkeypatch.setenv("SZ_PASSPHRASE", "secret123")
+    content = service.generate_unit(passphrase_env=True)
+    assert "SZ_PASSPHRASE=secret123" in content
+
+
+def test_generate_unit_omits_passphrase_when_disabled():
+    content = service.generate_unit(passphrase_env=False)
+    assert "SZ_PASSPHRASE=" in content  # placeholder is empty
+
+
+def test_generate_unit_includes_extra_env(monkeypatch):
+    monkeypatch.setenv("SZ_REGION", "CA")
+    monkeypatch.setenv("SZ_ESPLORA_URL", "https://esplora.test")
+    content = service.generate_unit(passphrase_env=False)
+    assert "SZ_REGION=CA" in content
+    assert "SZ_ESPLORA_URL=https://esplora.test" in content
+
+
+def test_generate_unit_is_valid_ini():
+    """Unit file should have [Unit], [Service], [Install] sections."""
+    content = service.generate_unit(passphrase_env=False)
+    assert "[Unit]" in content
+    assert "[Service]" in content
+    assert "[Install]" in content
+
+
+def test_generate_unit_sets_user(monkeypatch):
+    monkeypatch.setenv("USER", "testuser")
+    content = service.generate_unit(passphrase_env=False)
+    assert "User=testuser" in content
+
+
+# ── install ──────────────────────────────────────────────────────
+
+
+def test_install_calls_systemctl(monkeypatch, tmp_path):
+    monkeypatch.setenv("SZ_PASSPHRASE", "pw")
+    mock_unit_path = tmp_path / "saturnzap.service"
+
+    with (
+        patch.object(service, "_UNIT_PATH", mock_unit_path),
+        patch("subprocess.run") as mock_run,
+    ):
+        result = service.install()
+
+    assert mock_unit_path.exists()
+    assert result["unit_name"] == "saturnzap.service"
+    # Should call daemon-reload, enable, start
+    assert mock_run.call_count == 3
+    calls = [c.args[0] for c in mock_run.call_args_list]
+    assert ["systemctl", "daemon-reload"] in calls
+    assert ["systemctl", "enable", "saturnzap.service"] in calls
+    assert ["systemctl", "start", "saturnzap.service"] in calls
+
+
+# ── uninstall ────────────────────────────────────────────────────
+
+
+def test_uninstall_removes_unit(tmp_path):
+    mock_unit_path = tmp_path / "saturnzap.service"
+    mock_unit_path.write_text("[Unit]\n")
+
+    with (
+        patch.object(service, "_UNIT_PATH", mock_unit_path),
+        patch("subprocess.run") as mock_run,
+    ):
+        result = service.uninstall()
+
+    assert not mock_unit_path.exists()
+    assert result["message"] == "Service removed."
+    # stop, disable, daemon-reload
+    assert mock_run.call_count == 3
+
+
+def test_uninstall_missing_unit(tmp_path):
+    """uninstall should not crash if unit file doesn't exist."""
+    mock_unit_path = tmp_path / "saturnzap.service"
+
+    with (
+        patch.object(service, "_UNIT_PATH", mock_unit_path),
+        patch("subprocess.run"),
+    ):
+        result = service.uninstall()
+
+    assert result["unit_name"] == "saturnzap.service"
+
+
+# ── status ───────────────────────────────────────────────────────
+
+
+def test_status_active_enabled(tmp_path):
+    mock_unit_path = tmp_path / "saturnzap.service"
+    mock_unit_path.write_text("[Unit]\n")
+
+    active_result = MagicMock(stdout="active\n")
+    enabled_result = MagicMock(stdout="enabled\n")
+
+    with (
+        patch.object(service, "_UNIT_PATH", mock_unit_path),
+        patch("subprocess.run", side_effect=[active_result, enabled_result]),
+    ):
+        result = service.status()
+
+    assert result["is_active"] is True
+    assert result["is_enabled"] is True
+    assert result["installed"] is True
+
+
+def test_status_inactive(tmp_path):
+    mock_unit_path = tmp_path / "saturnzap.service"
+
+    inactive_result = MagicMock(stdout="inactive\n")
+    disabled_result = MagicMock(stdout="disabled\n")
+
+    with (
+        patch.object(service, "_UNIT_PATH", mock_unit_path),
+        patch("subprocess.run", side_effect=[inactive_result, disabled_result]),
+    ):
+        result = service.status()
+
+    assert result["is_active"] is False
+    assert result["is_enabled"] is False
+    assert result["installed"] is False

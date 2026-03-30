@@ -20,8 +20,9 @@ No `--json` flag is needed — JSON is the default output format.
 Error codes: `ALREADY_INITIALIZED`, `CONNECTION_FAILED`, `INSUFFICIENT_FUNDS`,
 `INVALID_PUBKEY`, `INVALID_ADDRESS`, `INVALID_INVOICE`, `INVALID_CHANNEL_ID`,
 `INVALID_NETWORK`, `PAYMENT_FAILED`, `CHANNEL_CREATION_FAILED`,
-`SPENDING_CAP_EXCEEDED`, `INVALID_PEER_ADDRESS`, `INVALID_ARGS`,
-`INVALID_HEADER`, `LDK_ERROR`, `INTERNAL_ERROR`.
+`SPENDING_CAP_EXCEEDED`, `EXCEEDS_MAX_SATS`, `INVALID_PEER_ADDRESS`, `INVALID_ARGS`,
+`INVALID_HEADER`, `L402_PARSE_FAILED`, `L402_NO_CHALLENGE`,
+`LDK_ERROR`, `INTERNAL_ERROR`, `NO_SEED`, `UNKNOWN_REGION`, `UNKNOWN_LSP`.
 
 ---
 
@@ -58,14 +59,71 @@ Error codes: `ALREADY_INITIALIZED`, `CONNECTION_FAILED`, `INSUFFICIENT_FUNDS`,
 }
 ```
 
+With `--close-all`:
+
+```json
+{
+  "status": "ok",
+  "message": "Closed 2 channel(s) and stopped node.",
+  "closed_channels": ["abc123...", "def456..."]
+}
+```
+
+With open channels (no `--close-all`):
+
+```json
+{
+  "status": "ok",
+  "message": "Node stopped.",
+  "warning": "2 channel(s) still open. Use --close-all to close first."
+}
+```
+
 ### `sz status`
 
 ```json
 {
   "status": "ok",
   "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b1fe3cc2550d7437afe5df59e50",
-  "listening_addresses": ["0.0.0.0:9735"],
-  "is_running": true
+  "is_running": true,
+  "network": "signet",
+  "block_height": 204512,
+  "block_hash": "00000023...",
+  "latest_wallet_sync": 1711700000,
+  "latest_lightning_sync": 1711700000,
+  "peer_count": 2,
+  "channel_count": 1,
+  "usable_channel_count": 1,
+  "sync_lag_seconds": 3
+}
+```
+
+### `sz setup`
+
+```json
+{
+  "status": "ok",
+  "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b1fe3cc2550d7437afe5df59e50",
+  "steps": [
+    { "step": "init", "skipped": true, "reason": "already initialized" },
+    { "step": "address", "address": "tb1qxxxx...", "network": "signet" }
+  ],
+  "message": "Setup complete. Fund your wallet: send signet sats to tb1qxxxx..."
+}
+```
+
+With `--auto` (includes inbound request):
+
+```json
+{
+  "status": "ok",
+  "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b1fe3cc2550d7437afe5df59e50",
+  "steps": [
+    { "step": "init", "skipped": false, "mnemonic": "twelve words ...", "seed_path": "/root/..." },
+    { "step": "address", "address": "tb1qxxxx...", "network": "signet" },
+    { "step": "inbound", "skipped": false, "user_channel_id": "1", "lqwd_node": "LQWD-Canada", "..." : "..." }
+  ],
+  "message": "Setup complete."
 }
 ```
 
@@ -80,6 +138,28 @@ Error codes: `ALREADY_INITIALIZED`, `CONNECTION_FAILED`, `INSUFFICIENT_FUNDS`,
   "status": "ok",
   "address": "tb1qxxxx...",
   "network": "signet"
+}
+```
+
+### `sz send <address> --amount 50000`
+
+```json
+{
+  "status": "ok",
+  "txid": "a1b2c3d4...",
+  "amount_sats": 50000,
+  "send_all": false
+}
+```
+
+### `sz send <address>` (send all)
+
+```json
+{
+  "status": "ok",
+  "txid": "a1b2c3d4...",
+  "amount_sats": null,
+  "send_all": true
 }
 ```
 
@@ -104,11 +184,14 @@ Error codes: `ALREADY_INITIALIZED`, `CONNECTION_FAILED`, `INSUFFICIENT_FUNDS`,
       "is_outbound": true,
       "is_announced": false,
       "confirmations": 6,
-      "funding_txo": "e23d2889...:0"
+      "funding_txo": "e23d2889...:0",
+      "status_reason": "ready"
     }
   ]
 }
 ```
+
+`status_reason` values: `"ready"`, `"awaiting_confirmation"`, `"peer_offline"`.
 
 ---
 
@@ -137,6 +220,38 @@ Error codes: `ALREADY_INITIALIZED`, `CONNECTION_FAILED`, `INSUFFICIENT_FUNDS`,
   "memo": "",
   "expiry_secs": 3600,
   "payment_hash": "def456..."
+}
+```
+
+### `sz invoice --amount-sats 1000 --wait`
+
+Paid:
+
+```json
+{
+  "status": "ok",
+  "invoice": "lnbc1000n1pjxyz...",
+  "amount_sats": 1000,
+  "payment_hash": "def456...",
+  "expiry_secs": 3600,
+  "paid": true,
+  "received_sats": 1000,
+  "waited_seconds": 12
+}
+```
+
+Not paid (timed out):
+
+```json
+{
+  "status": "ok",
+  "invoice": "lnbc1000n1pjxyz...",
+  "amount_sats": 1000,
+  "payment_hash": "def456...",
+  "expiry_secs": 3600,
+  "paid": false,
+  "waited_seconds": 3600,
+  "message": "Invoice not paid within 3600s."
 }
 ```
 
@@ -280,7 +395,8 @@ The `body` field is parsed as JSON when possible, otherwise a raw string.
       "is_outbound": true,
       "is_announced": false,
       "confirmations": 6,
-      "funding_txo": "e23d2889...:0"
+      "funding_txo": "e23d2889...:0",
+      "status_reason": "ready"
     }
   ]
 }
@@ -318,6 +434,37 @@ The `body` field is parsed as JSON when possible, otherwise a raw string.
 }
 ```
 
+### `sz channels wait --channel-id "abc123" --timeout 300`
+
+Success (ready before timeout):
+
+```json
+{
+  "status": "ok",
+  "status": "ready",
+  "channel": {
+    "channel_id": "abc123...",
+    "counterparty_node_id": "03992d76...",
+    "is_usable": true,
+    "status_reason": "ready",
+    "...": "..."
+  },
+  "waited_seconds": 45
+}
+```
+
+Timeout:
+
+```json
+{
+  "status": "ok",
+  "status": "timeout",
+  "channel": { "channel_id": "abc123...", "is_usable": false, "status_reason": "awaiting_confirmation", "...": "..." },
+  "waited_seconds": 300,
+  "message": "Channel not ready after 300s."
+}
+```
+
 ---
 
 ## Liquidity
@@ -345,9 +492,18 @@ The `body` field is parsed as JSON when possible, otherwise a raw string.
   ],
   "recommendations": [
     "Channel abc123... has low inbound capacity (critical). Request inbound liquidity."
+  ],
+  "stale_channels": [
+    {
+      "channel_id": "def456...",
+      "counterparty_node_id": "03bbb...",
+      "recommendation": "Peer offline — channel unusable. Consider force-closing if persistent."
+    }
   ]
 }
 ```
+
+`stale_channels` lists channels where the peer is connected but the channel is not usable (typically peer offline).
 
 ### `sz liquidity request-inbound --amount-sats 100000`
 
@@ -358,5 +514,42 @@ The `body` field is parsed as JSON when possible, otherwise a raw string.
   "node_id": "03abc...",
   "amount_sats": 100000,
   "message": "Inbound liquidity request initiated."
+}
+```
+
+---
+
+## Service Management
+
+### `sz service install`
+
+```json
+{
+  "status": "ok",
+  "unit_path": "/etc/systemd/system/saturnzap.service",
+  "unit_name": "saturnzap.service",
+  "message": "Service installed and started. Check: systemctl status saturnzap.service"
+}
+```
+
+### `sz service status`
+
+```json
+{
+  "status": "ok",
+  "unit_name": "saturnzap.service",
+  "is_active": true,
+  "is_enabled": true,
+  "installed": true
+}
+```
+
+### `sz service uninstall`
+
+```json
+{
+  "status": "ok",
+  "unit_name": "saturnzap.service",
+  "message": "Service removed."
 }
 ```

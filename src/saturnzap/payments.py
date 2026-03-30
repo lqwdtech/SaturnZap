@@ -63,6 +63,18 @@ def pay_invoice(invoice_str: str, max_sats: int | None = None) -> dict:
                 f"exceeds spending cap ({max_sats} sats).",
             )
 
+    # Pre-flight balance check
+    if invoice_amount_msat is not None:
+        bal = node.list_balances()
+        available = bal.total_lightning_balance_sats
+        needed = invoice_amount_msat // 1000
+        if needed > available:
+            output.error(
+                "INSUFFICIENT_FUNDS",
+                f"Invoice requires {needed} sats but Lightning balance "
+                f"is {available} sats.",
+            )
+
     payment_id = node.bolt11_payment().send(invoice, None)
     return {
         "payment_id": str(payment_id),
@@ -73,7 +85,20 @@ def pay_invoice(invoice_str: str, max_sats: int | None = None) -> dict:
 
 def keysend(pubkey: str, amount_sats: int) -> dict:
     """Send a spontaneous (keysend) payment to *pubkey*."""
+    from saturnzap import output
+
     node = _require_node()
+
+    # Pre-flight balance check
+    bal = node.list_balances()
+    available = bal.total_lightning_balance_sats
+    if amount_sats > available:
+        output.error(
+            "INSUFFICIENT_FUNDS",
+            f"Keysend requires {amount_sats} sats but Lightning balance "
+            f"is {available} sats.",
+        )
+
     amount_msat = amount_sats * 1000
     payment_id = node.spontaneous_payment().send(amount_msat, pubkey, None)
     return {
@@ -146,3 +171,38 @@ def _payment_status_str(status) -> str:
     if "FAILED" in s:
         return "failed"
     return "unknown"
+
+
+def wait_for_payment(
+    payment_hash: str,
+    timeout: int = 3600,
+    poll_interval: int = 3,
+) -> dict:
+    """Poll until a payment matching *payment_hash* is received or timeout.
+
+    Returns dict with 'paid': True/False and timing info.
+    """
+    import time
+
+    node = _require_node()
+    deadline = time.monotonic() + timeout
+
+    while time.monotonic() < deadline:
+        for p in node.list_payments():
+            if (
+                p.payment_hash == payment_hash
+                and "INBOUND" in str(p.direction)
+                and "SUCCEEDED" in str(p.status)
+            ):
+                return {
+                    "paid": True,
+                    "received_sats": p.amount_msat // 1000 if p.amount_msat else None,
+                    "waited_seconds": int(timeout - (deadline - time.monotonic())),
+                }
+        time.sleep(poll_interval)
+
+    return {
+        "paid": False,
+        "waited_seconds": timeout,
+        "message": f"Invoice not paid within {timeout}s.",
+    }

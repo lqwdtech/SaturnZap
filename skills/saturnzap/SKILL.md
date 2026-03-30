@@ -11,6 +11,26 @@ metadata:
 Non-custodial Lightning Network wallet for autonomous AI agents. All output is JSON by default — no `--json` flag needed. Parse stdout for success (`"status": "ok"`) and stderr for errors (`"status": "error"`).
 
 See `{baseDir}/references/json-contracts.md` for full JSON output shapes.
+For deep agent integration scenarios, error recovery trees, and anti-patterns, see `docs/agent-guide.md`.
+
+## Quick Decision — 5 Most Common Agent Actions
+
+```bash
+# 1. First-time setup (idempotent, one command)
+sz setup --auto
+
+# 2. Pay for API access (L402, with spending cap)
+sz fetch "https://api.example.com/data" --max-sats 100
+
+# 3. Check if operational
+sz status  # parse: synced, peer_count > 0, usable_channel_count > 0
+
+# 4. Receive payment (blocking)
+sz invoice --amount-sats 1000 --memo "service fee" --wait
+
+# 5. Send a Lightning payment (with cap)
+sz pay --invoice "lnbc..." --max-sats 5000
+```
 
 ## When to Use
 
@@ -68,6 +88,12 @@ Configure in `openclaw.json` to inject the passphrase automatically:
 ## Node Management
 
 ```bash
+# Guided first-run (idempotent — skips completed steps)
+sz setup
+
+# Non-interactive setup: init + address + request inbound from LQWD
+sz setup --auto
+
 # Initialize wallet (first time — writes seed, starts node)
 sz init
 
@@ -77,11 +103,16 @@ sz start
 # Stop node
 sz stop
 
-# Check node status (pubkey, sync state)
+# Stop node and cooperatively close all channels first
+sz stop --close-all
+
+# Check node status (pubkey, sync state, peer/channel counts)
 sz status
 ```
 
 The node auto-starts when needed. Most commands call `sz start` internally if the node isn't running.
+
+**For agents:** Prefer `sz setup --auto` over `sz init` — it's idempotent and handles the full first-run flow in one command.
 
 ## Wallet
 
@@ -89,15 +120,26 @@ The node auto-starts when needed. Most commands call `sz start` internally if th
 # Get a new on-chain address (for receiving signet faucet deposits)
 sz address
 
+# Send sats on-chain to an address
+sz send <address> --amount 50000
+
+# Send ALL on-chain sats to an address
+sz send <address>
+
 # Check balances (on-chain + lightning + per-channel breakdown)
 sz balance
 ```
+
+Payment commands (`pay`, `keysend`, `send`) include pre-flight balance checks — they return a clear `INSUFFICIENT_FUNDS` error with the current balance if funds are too low.
 
 ## Payments
 
 ```bash
 # Create invoice to receive 1000 sats
 sz invoice --amount-sats 1000 --memo "payment for data"
+
+# Create invoice and wait until paid (blocks until payment or expiry)
+sz invoice --amount-sats 1000 --memo "service fee" --wait
 
 # Create variable-amount invoice (payer chooses amount)
 sz invoice --amount-sats 0 --memo "tips welcome"
@@ -160,6 +202,9 @@ sz channels close --channel-id "abc123" --counterparty "03abc..."
 
 # Force-close a channel
 sz channels close --channel-id "abc123" --counterparty "03abc..." --force
+
+# Wait for a channel to become usable (blocks until ready or timeout)
+sz channels wait --channel-id "abc123" --timeout 300
 ```
 
 ## Peers
@@ -190,11 +235,28 @@ sz liquidity request-inbound --amount-sats 100000 --region CA
 
 Health scores range 0–100. Labels: `healthy` (40+), `warning` (20–40), `critical` (0–20).
 
+Channels with offline peers are flagged as stale with force-close recommendations.
+
+## Service Management
+
+```bash
+# Install and start SaturnZap as a systemd service (persistent node)
+sz service install
+
+# Check service status
+sz service status
+
+# Remove the systemd service
+sz service uninstall
+```
+
+When the systemd service is running, the node stays up between CLI calls (no per-command startup overhead).
+
 ## Guardrails
 
 - **Always use `--max-sats`** on `sz pay` and `sz fetch` to enforce spending caps. Never pay unbounded invoices autonomously.
 - **Never expose the mnemonic** — the seed phrase from `sz init` must never appear in chat, logs, or tool output after initial display.
-- **Check balance first** — run `sz balance` before large payments to confirm sufficient funds.
+- **Check balance first** — payment commands now check balance automatically and return `INSUFFICIENT_FUNDS` with the current balance. You can also run `sz balance` before large payments.
 - **Parse JSON output** — all `sz` commands output JSON to stdout on success, stderr on error. Use the `status` field to branch logic.
 - **Signet only** — current network is Bitcoin signet (test sats). No real monetary value. Do not promise users real payments.
 - **Passphrase security** — `SZ_PASSPHRASE` encrypts the seed on disk. Keep it out of chat and logs.
@@ -214,11 +276,12 @@ sz fetch "https://api.example.com/premium" --max-sats 100
 ### Receive a Payment
 
 ```bash
-# Create an invoice
-sz invoice --amount-sats 1000 --memo "service fee"
+# Create an invoice and wait until paid (recommended for agents)
+sz invoice --amount-sats 1000 --memo "service fee" --wait
 
+# Or: create invoice, share it, then poll manually
+sz invoice --amount-sats 1000 --memo "service fee"
 # Share the `invoice` field from the JSON output with the payer
-# Then check payment arrived
 sz transactions --limit 1
 ```
 
@@ -238,8 +301,8 @@ sz balance
 # Open a channel
 sz channels open --lsp lqwd --amount-sats 100000
 
-# Wait for on-chain confirmation (check channel list for is_channel_ready)
-sz channels list
+# Wait for channel to become usable
+sz channels wait --timeout 300
 
 # Pay an invoice once the channel is ready
 sz pay --invoice "lnbc..." --max-sats 5000

@@ -84,7 +84,7 @@ the infrastructure is the business.
   global reach, but the agent controls its own peer relationships entirely.
 - **JSON-first** — Every command writes structured JSON to stdout. Errors go to stderr.
   Designed for machine consumption from day one.
-- **MCP-native** — Built-in MCP server exposes 20 tools over stdio. Connect Claude,
+- **MCP-native** — Built-in MCP server exposes 22 tools over stdio. Connect Claude,
   Cursor, VS Code, or any MCP-compatible agent with a single config block.
 - **Autonomous** — No interactive prompts. No human confirmation flows. Designed to run
   inside agent runtimes, shell scripts, and orchestration pipelines.
@@ -234,15 +234,20 @@ All commands output JSON to stdout. Errors exit with code 1, written to stderr.
 
 ```bash
 sz init                          # Generate seed, start node, peer with nearest LQWD node
+sz setup                         # Guided first-run: init + address (idempotent)
+sz setup --auto                  # Non-interactive: init + address + request inbound from LQWD
 sz start                         # Start the node daemon
 sz stop                          # Stop the node daemon
-sz status                        # Node pubkey, sync state, uptime
+sz stop --close-all              # Cooperatively close all channels, then stop
+sz status                        # Node pubkey, sync state, peer/channel counts
 ```
 
 ### Wallet
 
 ```bash
 sz address                       # New on-chain receiving address
+sz send <address>                # Send all on-chain sats to address
+sz send <address> -a 50000       # Send specific amount on-chain
 sz balance                       # Onchain + lightning balances, per-channel breakdown
 sz transactions --limit 20       # Payment history
 ```
@@ -271,12 +276,16 @@ sz channels open --lsp lqwd --region JP --amount-sats 100000
 
 sz channels close --channel-id <id>
 sz channels close --channel-id <id> --force
+
+# Wait for a channel to become usable (blocks until ready or timeout)
+sz channels wait --channel-id <id> --timeout 300
 ```
 
 ### Payments
 
 ```bash
 sz invoice --amount-sats 1000 --memo "for data"
+sz invoice --amount-sats 1000 --wait    # Block until paid or expired
 sz pay --invoice lnbc1...
 sz pay --invoice lnbc1... --max-sats 500    # spending cap for agent safety
 sz keysend --pubkey <pubkey> --amount-sats 100
@@ -300,6 +309,14 @@ sz fetch https://api.example.com/data --header "X-Custom: value"
 ```bash
 sz liquidity status
 sz liquidity request-inbound --amount-sats 500000
+```
+
+### Service Management
+
+```bash
+sz service install               # Install and start systemd service
+sz service status                # Check service status
+sz service uninstall             # Stop and remove systemd service
 ```
 
 ### MCP Server
@@ -330,7 +347,7 @@ sz-mcp                           # Same as sz mcp
 }
 ```
 
-The MCP server exposes 20 tools covering node lifecycle, wallet, peers, channels,
+The MCP server exposes 22 tools covering node lifecycle, wallet, peers, channels,
 payments, L402 fetch, and liquidity management. Set `SZ_MCP_MAX_SPEND_SATS` to
 enforce a global per-request spending cap on L402 payments.
 
@@ -440,7 +457,8 @@ enforce a global per-request spending cap on L402 payments.
 │       ├── keystore.py            # BIP39 seed, Fernet encryption
 │       ├── lqwd.py                # LQWD node directory (18 regions)
 │       ├── config.py              # Config paths, Esplora fallback, TOML loader
-│       ├── mcp_server.py          # MCP server — 20 tools for AI agents
+│       ├── mcp_server.py          # MCP server — 22 tools for AI agents
+│       ├── service.py             # Systemd service generator
 │       └── output.py              # JSON output, TTY detection, --pretty
 │
 ├── tests/

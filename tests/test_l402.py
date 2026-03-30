@@ -211,3 +211,72 @@ def test_fetch_cli_normal_response():
     assert data["status"] == "ok"
     assert data["http_status"] == 200
     assert data["body"] == {"data": "test"}
+
+
+# ── Additional tests ─────────────────────────────────────────────
+
+
+def test_cache_token_reuse():
+    """A cached token should be used on the second fetch (skip payment)."""
+    mock_resp_200 = httpx.Response(
+        200,
+        text='{"data": "cached"}',
+        headers={"content-type": "application/json"},
+        request=httpx.Request("GET", "https://api.cached.com"),
+    )
+
+    # Pre-seed the cache
+    l402._save_token("https://api.cached.com", "LSAT mac:pre")
+
+    with patch("httpx.Client") as mock_client:
+        instance = mock_client.return_value.__enter__.return_value
+        instance.request.return_value = mock_resp_200
+
+        result = l402.fetch("https://api.cached.com")
+
+    assert result.http_status == 200
+    # Should have sent Authorization header with cached token
+    call_kwargs = instance.request.call_args
+    assert call_kwargs.kwargs.get("headers", {}).get("Authorization") == "LSAT mac:pre"
+
+
+def test_stale_token_evicted(tmp_path, monkeypatch):
+    """If a cached token gets a 402, it should be evicted and re-challenged."""
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    l402._save_token("https://api.stale.com", "LSAT old_mac:old_pre")
+
+    challenge_header = 'LSAT macaroon="newmac", invoice="lntbs100n1pfresh"'
+    resp_402 = httpx.Response(
+        402, text="", headers={"www-authenticate": challenge_header},
+        request=httpx.Request("GET", "https://api.stale.com"),
+    )
+    resp_200 = httpx.Response(
+        200, text='{"ok": true}',
+        request=httpx.Request("GET", "https://api.stale.com"),
+    )
+
+    mock_pay = {
+        "payment_hash": "newhash", "preimage": "newpre",
+        "amount_sats": 100, "fee_sats": 0,
+    }
+
+    with (
+        patch("httpx.Client") as mock_client,
+        patch("saturnzap.payments.pay_invoice", return_value=mock_pay),
+    ):
+        instance = mock_client.return_value.__enter__.return_value
+        # First call (with stale token) -> 402,
+        # second (without) -> 402, third (paid) -> 200
+        instance.request.side_effect = [resp_402, resp_402, resp_200]
+
+        result = l402.fetch("https://api.stale.com")
+
+    assert result.http_status == 200
+    assert result.payment_hash == "newhash"
+
+
+def test_cache_key_length():
+    """Cache key should be 32 characters (first 32 of SHA256 hex)."""
+    key = l402._cache_key("https://example.com/anything")
+    assert len(key) == 32
+    assert all(c in "0123456789abcdef" for c in key)

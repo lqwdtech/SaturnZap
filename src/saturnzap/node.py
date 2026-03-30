@@ -79,9 +79,21 @@ def get_node() -> Node | None:
 
 def get_status() -> dict:
     """Return a JSON-serialisable status dict."""
+    import time
+
     node = _require_node()
     node.sync_wallets()
     st = node.status()
+
+    peers = node.list_peers()
+    channels = node.list_channels()
+    usable = sum(1 for c in channels if c.is_usable)
+
+    # Compute sync lag from latest wallet sync timestamp
+    now_ts = int(time.time())
+    wallet_ts = st.latest_onchain_wallet_sync_timestamp
+    sync_lag_seconds = (now_ts - wallet_ts) if wallet_ts else None
+
     return {
         "pubkey": node.node_id(),
         "is_running": st.is_running,
@@ -90,6 +102,10 @@ def get_status() -> dict:
         "block_hash": st.current_best_block.block_hash,
         "latest_wallet_sync": st.latest_onchain_wallet_sync_timestamp,
         "latest_lightning_sync": st.latest_lightning_wallet_sync_timestamp,
+        "peer_count": len(peers),
+        "channel_count": len(channels),
+        "usable_channel_count": usable,
+        "sync_lag_seconds": sync_lag_seconds,
     }
 
 
@@ -119,6 +135,36 @@ def _require_node() -> Node:
 def new_onchain_address() -> str:
     """Generate a new on-chain (signet) receive address."""
     return _require_node().onchain_payment().new_address()
+
+
+def send_onchain(address: str, amount_sats: int | None = None) -> str:
+    """Send sats on-chain. If *amount_sats* is None, send all funds."""
+    from saturnzap import output
+
+    node = _require_node()
+    node.sync_wallets()
+
+    # Pre-flight balance check
+    bal = node.list_balances()
+    available = bal.spendable_onchain_balance_sats
+    if amount_sats is not None and amount_sats > available:
+        output.error(
+            "INSUFFICIENT_FUNDS",
+            f"Send requires {amount_sats} sats but spendable on-chain balance "
+            f"is {available} sats.",
+        )
+    if amount_sats is None and available == 0:
+        output.error(
+            "INSUFFICIENT_FUNDS",
+            "No spendable on-chain balance to send.",
+        )
+
+    op = node.onchain_payment()
+    if amount_sats is None:
+        txid = op.send_all_to_address(address, retain_reserve=False, fee_rate=None)
+    else:
+        txid = op.send_to_address(address, amount_sats, fee_rate=None)
+    return str(txid)
 
 
 def get_balance() -> dict:
@@ -167,6 +213,14 @@ def list_peers() -> list[dict]:
 
 def _channel_to_dict(c) -> dict:
     """Convert a ChannelDetails to a JSON-serialisable dict."""
+    # Derive a human-readable status reason
+    if c.is_usable:
+        status_reason = "ready"
+    elif not c.is_channel_ready:
+        status_reason = "awaiting_confirmation"
+    else:
+        status_reason = "peer_offline"
+
     return {
         "channel_id": str(c.channel_id),
         "counterparty_node_id": c.counterparty_node_id,
@@ -179,12 +233,64 @@ def _channel_to_dict(c) -> dict:
         "is_announced": c.is_announced,
         "confirmations": c.confirmations,
         "funding_txo": str(c.funding_txo) if c.funding_txo else None,
+        "status_reason": status_reason,
     }
 
 
 def list_channels() -> list[dict]:
     """Return all channels as dicts."""
     return [_channel_to_dict(c) for c in _require_node().list_channels()]
+
+
+def wait_channel_ready(
+    channel_id: str | None = None,
+    timeout: int = 300,
+    poll_interval: int = 5,
+) -> dict:
+    """Block until a channel becomes usable or timeout.
+
+    Args:
+        channel_id: Specific channel to wait for. If None, waits for any usable channel.
+        timeout: Maximum seconds to wait.
+        poll_interval: Seconds between checks.
+
+    Returns:
+        Dict with the ready channel info, or timeout status.
+    """
+    import time
+
+    node = _require_node()
+    deadline = time.monotonic() + timeout
+
+    while time.monotonic() < deadline:
+        node.sync_wallets()
+        channels = node.list_channels()
+        for c in channels:
+            if channel_id and str(c.channel_id) != channel_id:
+                continue
+            if c.is_usable:
+                return {
+                    "status": "ready",
+                    "channel": _channel_to_dict(c),
+                    "waited_seconds": int(timeout - (deadline - time.monotonic())),
+                }
+        time.sleep(poll_interval)
+
+    # Timeout — return current state of the target channel(s)
+    channels = node.list_channels()
+    target = None
+    for c in channels:
+        if channel_id and str(c.channel_id) != channel_id:
+            continue
+        target = _channel_to_dict(c)
+        break
+
+    return {
+        "status": "timeout",
+        "channel": target,
+        "waited_seconds": timeout,
+        "message": f"Channel not ready after {timeout}s.",
+    }
 
 
 def open_channel(

@@ -103,6 +103,24 @@ def get_status() -> dict:
 
     recs = _generate_recommendations(channels, balance, cfg)
 
+    # Flag channels with offline peers (D2: stale channel detection)
+    stale: list[dict] = []
+    for ch in channels:
+        if ch["is_channel_ready"] and not ch["is_usable"]:
+            stale.append({
+                "channel_id": ch["channel_id"],
+                "counterparty_node_id": ch["counterparty_node_id"],
+                "recommendation": (
+                    "Peer offline — channel unusable. "
+                    "Consider force-closing if persistent."
+                ),
+            })
+    if stale:
+        recs.append(
+            f"{len(stale)} channel(s) have offline peers. "
+            "Use 'sz channels close --force' if prolonged."
+        )
+
     return {
         "channels": scored,
         "total_channels": len(scored),
@@ -110,6 +128,7 @@ def get_status() -> dict:
         "onchain_sats": balance["onchain_sats"],
         "lightning_sats": balance["lightning_sats"],
         "recommendations": recs,
+        "stale_channels": stale,
     }
 
 

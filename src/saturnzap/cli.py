@@ -107,6 +107,92 @@ def init() -> None:
 
 
 @app.command()
+def setup(
+    auto: Annotated[
+        bool,
+        typer.Option(
+            "--auto",
+            help="Non-interactive: init + request inbound from LQWD.",
+        ),
+    ] = False,
+    region: Annotated[
+        str | None,
+        typer.Option(
+            "--region",
+            help="LQWD region code for inbound channel.",
+        ),
+    ] = None,
+    inbound_sats: Annotated[
+        int,
+        typer.Option("--inbound-sats", help="Inbound liquidity to request (sats)."),
+    ] = 100_000,
+) -> None:
+    """Guided first-run: init wallet, generate address, optionally open channel.
+
+    Idempotent — skips steps that are already complete.
+    Use --auto for fully non-interactive setup (requires SZ_PASSPHRASE env var).
+    """
+    from saturnzap import keystore
+    from saturnzap import node as node_mod
+
+    steps: list[dict] = []
+
+    # Step 1: Init wallet (skip if already done)
+    if keystore.is_initialized():
+        passphrase = keystore.get_passphrase()
+        mnemonic = keystore.load_mnemonic(passphrase)
+        n = node_mod.start(mnemonic)
+        steps.append({"step": "init", "skipped": True, "reason": "already initialized"})
+    else:
+        mnemonic = keystore.generate_mnemonic()
+        passphrase = keystore.get_passphrase(confirm=True)
+        path = keystore.save_encrypted(mnemonic, passphrase)
+        n = node_mod.start(mnemonic)
+        steps.append({
+            "step": "init",
+            "skipped": False,
+            "mnemonic": mnemonic,
+            "seed_path": str(path),
+        })
+
+    # Step 2: Generate a receive address
+    addr = node_mod.new_onchain_address()
+    network = node_mod.load_config().get("network", "signet")
+    steps.append({"step": "address", "address": addr, "network": network})
+
+    # Step 3 (--auto only): Request inbound liquidity from LQWD
+    if auto:
+        from saturnzap import liquidity
+
+        bal = node_mod.get_balance()
+        has_channels = len(bal["channels"]) > 0
+
+        if has_channels:
+            steps.append({
+                "step": "inbound",
+                "skipped": True,
+                "reason": "channel(s) already exist",
+            })
+        else:
+            try:
+                info = liquidity.request_inbound(inbound_sats, region)
+                steps.append({"step": "inbound", "skipped": False, **info})
+            except SystemExit:
+                steps.append({
+                    "step": "inbound",
+                    "skipped": True,
+                    "reason": "inbound request failed (fund wallet first)",
+                })
+
+    output.ok(
+        pubkey=n.node_id(),
+        steps=steps,
+        message="Setup complete." if auto else
+                f"Setup complete. Fund your wallet: send signet sats to {addr}",
+    )
+
+
+@app.command()
 def start() -> None:
     """Start the Lightning node, verify connectivity, and exit."""
     from saturnzap import node as node_mod
@@ -116,12 +202,50 @@ def start() -> None:
 
 
 @app.command()
-def stop() -> None:
+def stop(
+    close_all: Annotated[
+        bool,
+        typer.Option(
+            "--close-all",
+            help="Cooperatively close all channels first.",
+        ),
+    ] = False,
+) -> None:
     """Stop the Lightning node and clean up."""
     from saturnzap import node as node_mod
 
-    node_mod.stop()
-    output.ok(message="Node stopped.")
+    if close_all:
+        channels = node_mod.list_channels()
+        closed = []
+        for ch in channels:
+            try:
+                node_mod.close_channel(ch["channel_id"], ch["counterparty_node_id"])
+                closed.append(ch["channel_id"])
+            except Exception:  # noqa: BLE001, S110
+                pass  # Best-effort; node.stop() will handle the rest
+        node_mod.stop()
+        output.ok(
+            message=f"Closed {len(closed)} channel(s) and stopped node.",
+            closed_channels=closed,
+        )
+    else:
+        # Warn if channels are still open
+        try:
+            channels = node_mod.list_channels()
+            if channels:
+                node_mod.stop()
+                output.ok(
+                    message="Node stopped.",
+                    warning=(
+                        f"{len(channels)} channel(s) still open. "
+                        "Use --close-all to close first."
+                    ),
+                )
+                return
+        except Exception:  # noqa: BLE001, S110
+            pass
+        node_mod.stop()
+        output.ok(message="Node stopped.")
 
 
 @app.command()
@@ -140,6 +264,24 @@ def address() -> None:
 
     addr = node_mod.new_onchain_address()
     output.ok(address=addr, network=node_mod.load_config().get("network", "signet"))
+
+
+@app.command()
+def send(
+    address: Annotated[
+        str,
+        typer.Argument(help="Destination on-chain address."),
+    ],
+    amount_sats: Annotated[
+        int | None,
+        typer.Option("--amount", "-a", help="Amount in sats (omit to send all)."),
+    ] = None,
+) -> None:
+    """Send sats on-chain to an address."""
+    from saturnzap import node as node_mod
+
+    txid = node_mod.send_onchain(address, amount_sats)
+    output.ok(txid=txid, amount_sats=amount_sats, send_all=amount_sats is None)
 
 
 @app.command()
@@ -168,6 +310,10 @@ def invoice(
         int,
         typer.Option("--expiry", help="Invoice expiry in seconds"),
     ] = 3600,
+    wait: Annotated[
+        bool,
+        typer.Option("--wait", help="Block until invoice is paid or expired."),
+    ] = False,
 ) -> None:
     """Create a BOLT11 invoice to receive a payment."""
     from saturnzap import payments
@@ -176,7 +322,14 @@ def invoice(
         info = payments.create_invoice(amount_sats, memo, expiry)
     else:
         info = payments.create_variable_invoice(memo, expiry)
-    output.ok(**info)
+
+    if not wait:
+        output.ok(**info)
+        return
+
+    # Block until paid or expired
+    result = payments.wait_for_payment(info["payment_hash"], timeout=expiry)
+    output.ok(**{**info, **result})
 
 
 @app.command()
@@ -358,6 +511,24 @@ def channels_close(
         output.ok(channel_id=channel_id, message="Cooperative close initiated.")
 
 
+@channels_app.command("wait")
+def channels_wait(
+    channel_id: Annotated[
+        str | None,
+        typer.Option("--channel-id", help="Channel ID to wait for (any if omitted)."),
+    ] = None,
+    timeout: Annotated[
+        int,
+        typer.Option("--timeout", help="Max seconds to wait."),
+    ] = 300,
+) -> None:
+    """Block until a channel becomes usable or timeout."""
+    from saturnzap import node as node_mod
+
+    result = node_mod.wait_channel_ready(channel_id, timeout)
+    output.ok(**result)
+
+
 # ── Phase 4: L402 ───────────────────────────────────────────────
 
 
@@ -397,8 +568,79 @@ def liquidity_request_inbound(
     output.ok(**info)
 
 
-# ── Phase 4: L402 (fetch) ───────────────────────────────────────
+# ── Service management ───────────────────────────────────────────
 
+service_app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False)
+app.add_typer(service_app, name="service", help="Manage SaturnZap systemd service.")
+
+
+@service_app.command("install")
+def service_install() -> None:
+    """Install and start the SaturnZap systemd service."""
+    from saturnzap import service
+
+    info = service.install()
+    output.ok(**info)
+
+
+@service_app.command("uninstall")
+def service_uninstall() -> None:
+    """Stop and remove the SaturnZap systemd service."""
+    from saturnzap import service
+
+    info = service.uninstall()
+    output.ok(**info)
+
+
+@service_app.command("status")
+def service_status() -> None:
+    """Check the SaturnZap systemd service status."""
+    from saturnzap import service
+
+    info = service.status()
+    output.ok(**info)
+
+
+# ── Backup & Restore ────────────────────────────────────────────
+
+
+@app.command()
+def backup(
+    output_path: Annotated[
+        str,
+        typer.Option("--output", "-o", help="Path to write the encrypted backup file."),
+    ] = "saturnzap-backup.json",
+) -> None:
+    """Create an encrypted backup of the wallet."""
+    from pathlib import Path
+
+    from saturnzap import backup as backup_mod
+    from saturnzap import keystore
+
+    passphrase = keystore.get_passphrase()
+    info = backup_mod.backup(Path(output_path), passphrase)
+    output.ok(**info, message="Backup created successfully.")
+
+
+@app.command()
+def restore(
+    input_path: Annotated[
+        str,
+        typer.Option("--input", "-i", help="Path to the encrypted backup file."),
+    ],
+) -> None:
+    """Restore wallet from an encrypted backup."""
+    from pathlib import Path
+
+    from saturnzap import backup as backup_mod
+    from saturnzap import keystore
+
+    passphrase = keystore.get_passphrase(confirm=True)
+    info = backup_mod.restore(Path(input_path), passphrase)
+    output.ok(**info, message="Wallet restored successfully.")
+
+
+# ── Phase 4: L402 (fetch) ───────────────────────────────────────
 
 @app.command()
 def fetch(

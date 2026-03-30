@@ -203,6 +203,8 @@ def _check_invoice_amount(invoice_str: str, max_sats: int) -> None:
     """Abort if the invoice amount exceeds the spending cap."""
     from ldk_node import Bolt11Invoice
 
+    from saturnzap.node import _require_node
+
     inv = Bolt11Invoice.from_str(invoice_str)
     amount_msat = inv.amount_milli_satoshis()
     if amount_msat is not None:
@@ -211,4 +213,14 @@ def _check_invoice_amount(invoice_str: str, max_sats: int) -> None:
             output.error(
                 "SPENDING_CAP_EXCEEDED",
                 f"Invoice requires {amount_sats} sats but cap is {max_sats} sats.",
+            )
+        # Pre-flight: also check Lightning balance
+        node = _require_node()
+        bal = node.list_balances()
+        available = bal.total_lightning_balance_sats
+        if amount_sats > available:
+            output.error(
+                "INSUFFICIENT_FUNDS",
+                f"L402 invoice requires {amount_sats} sats but Lightning "
+                f"balance is {available} sats.",
             )

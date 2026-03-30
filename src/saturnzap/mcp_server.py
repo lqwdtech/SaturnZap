@@ -68,6 +68,70 @@ def init_wallet() -> dict[str, Any]:
 
 
 @mcp.tool()
+def setup_wallet(
+    auto: bool = True,
+    region: str | None = None,
+    inbound_sats: int = 100_000,
+) -> dict[str, Any]:
+    """Guided first-run: init wallet, generate address, optionally open channel.
+
+    Idempotent — skips steps already complete. Preferred over init_wallet for agents.
+
+    Args:
+        auto: If True, also request inbound liquidity from LQWD.
+        region: LQWD region code (e.g. CA, US, JP). Auto-selects nearest if omitted.
+        inbound_sats: Inbound capacity to request in satoshis.
+    """
+    from saturnzap import keystore, node
+
+    steps: list[dict] = []
+
+    if keystore.is_initialized():
+        passphrase = keystore.get_passphrase()
+        mnemonic = keystore.load_mnemonic(passphrase)
+        n = node.start(mnemonic)
+        steps.append({"step": "init", "skipped": True, "reason": "already initialized"})
+    else:
+        mnemonic = keystore.generate_mnemonic()
+        passphrase = keystore.get_passphrase(confirm=True)
+        path = keystore.save_encrypted(mnemonic, passphrase)
+        n = node.start(mnemonic)
+        steps.append({
+            "step": "init", "skipped": False,
+            "mnemonic": mnemonic, "seed_path": str(path),
+        })
+
+    from saturnzap.config import load_config
+    addr = node.new_onchain_address()
+    network = load_config().get("network", "signet")
+    steps.append({"step": "address", "address": addr, "network": network})
+
+    if auto:
+        from saturnzap import liquidity
+
+        bal = node.get_balance()
+        has_channels = len(bal["channels"]) > 0
+        if has_channels:
+            steps.append({"step": "inbound", "skipped": True,
+                          "reason": "channel(s) already exist"})
+        else:
+            try:
+                info = liquidity.request_inbound(inbound_sats, region)
+                steps.append({"step": "inbound", "skipped": False, **info})
+            except SystemExit:
+                steps.append({"step": "inbound", "skipped": True,
+                              "reason": "inbound request failed (fund wallet first)"})
+
+    return {
+        "status": "ok",
+        "pubkey": n.node_id(),
+        "steps": steps,
+        "message": "Setup complete." if auto else
+                   f"Setup complete. Fund wallet at: {addr}",
+    }
+
+
+@mcp.tool()
 def get_status() -> dict[str, Any]:
     """Return node pubkey, sync state, block height, and timestamps."""
     from saturnzap import node
@@ -105,6 +169,25 @@ def get_balance() -> dict[str, Any]:
     from saturnzap import node
 
     return node.get_balance()
+
+
+@mcp.tool()
+def send_onchain(address: str, amount_sats: int | None = None) -> dict[str, Any]:
+    """Send sats on-chain to an address.
+
+    Args:
+        address: Destination on-chain address.
+        amount_sats: Amount in satoshis. If omitted, sends all funds.
+    """
+    from saturnzap import node
+
+    txid = node.send_onchain(address, amount_sats)
+    return {
+        "status": "ok",
+        "txid": txid,
+        "amount_sats": amount_sats,
+        "send_all": amount_sats is None,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -363,6 +446,41 @@ def list_lqwd_nodes(region: str | None = None) -> dict[str, Any]:
 
     nodes = lqwd.list_nodes(region)
     return {"nodes": nodes, "count": len(nodes)}
+
+
+# ---------------------------------------------------------------------------
+# Backup & Restore tools
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+def backup_wallet(output_path: str = "saturnzap-backup.json") -> dict[str, Any]:
+    """Create an encrypted backup of the wallet.
+
+    Args:
+        output_path: Path to write the encrypted backup file.
+    """
+    from pathlib import Path
+
+    from saturnzap import backup, keystore
+
+    passphrase = keystore.get_passphrase()
+    return backup.backup(Path(output_path), passphrase)
+
+
+@mcp.tool()
+def restore_wallet(input_path: str) -> dict[str, Any]:
+    """Restore the wallet from an encrypted backup.
+
+    Args:
+        input_path: Path to the encrypted backup file.
+    """
+    from pathlib import Path
+
+    from saturnzap import backup, keystore
+
+    passphrase = keystore.get_passphrase(confirm=True)
+    return backup.restore(Path(input_path), passphrase)
 
 
 # ---------------------------------------------------------------------------

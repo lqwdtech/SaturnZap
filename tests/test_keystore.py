@@ -56,3 +56,69 @@ def test_is_initialized(tmp_data_dir):
 def test_load_missing_seed_fails(tmp_data_dir):
     with pytest.raises(SystemExit):
         keystore.load_mnemonic("anything")
+
+
+# ── Additional tests ─────────────────────────────────────────────
+
+
+def test_corrupt_seed_file_fails(tmp_data_dir):
+    """A corrupted seed.enc file should raise SystemExit (BAD_PASSPHRASE)."""
+    d = tmp_data_dir / "saturnzap"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "seed.enc").write_bytes(b"corrupted-not-fernet-data")
+    (d / "seed.salt").write_bytes(b"0" * 16)
+
+    with pytest.raises(SystemExit):
+        keystore.load_mnemonic("anything")
+
+
+def test_missing_salt_file_fails(tmp_data_dir):
+    """If seed.enc exists but seed.salt is missing, should fail."""
+    d = tmp_data_dir / "saturnzap"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "seed.enc").write_bytes(b"fake")
+    # No salt file
+
+    with pytest.raises(SystemExit):
+        keystore.load_mnemonic("anything")
+
+
+def test_empty_passphrase_round_trip(tmp_data_dir):
+    """Empty passphrase should still encrypt/decrypt correctly."""
+    mnemonic = keystore.generate_mnemonic()
+    keystore.save_encrypted(mnemonic, "")
+    recovered = keystore.load_mnemonic("")
+    assert recovered == mnemonic
+
+
+def test_long_passphrase_round_trip(tmp_data_dir):
+    """A very long passphrase should work."""
+    mnemonic = keystore.generate_mnemonic()
+    long_pp = "x" * 10_000
+    keystore.save_encrypted(mnemonic, long_pp)
+    recovered = keystore.load_mnemonic(long_pp)
+    assert recovered == mnemonic
+
+
+def test_salt_is_16_bytes(tmp_data_dir):
+    """The saved salt should be exactly 16 bytes."""
+    keystore.save_encrypted("abandon " * 23 + "art", "pw")
+    salt = keystore.salt_path().read_bytes()
+    assert len(salt) == 16
+
+
+def test_different_encryptions_produce_different_salt(tmp_data_dir):
+    """Two saves should produce different salts (random)."""
+    keystore.save_encrypted("abandon " * 23 + "art", "pw")
+    salt1 = keystore.salt_path().read_bytes()
+
+    keystore.save_encrypted("abandon " * 23 + "art", "pw")
+    salt2 = keystore.salt_path().read_bytes()
+
+    assert salt1 != salt2
+
+
+def test_get_passphrase_from_env(tmp_data_dir, monkeypatch):
+    """get_passphrase should read from SZ_PASSPHRASE env var."""
+    monkeypatch.setenv("SZ_PASSPHRASE", "envpass")
+    assert keystore.get_passphrase() == "envpass"

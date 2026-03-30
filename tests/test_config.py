@@ -1,4 +1,4 @@
-"""Tests for saturnzap.config — Esplora fallback resolver."""
+"""Tests for saturnzap.config — Esplora fallback resolver and config helpers."""
 
 from unittest.mock import MagicMock, patch
 
@@ -76,3 +76,65 @@ class TestResolveEsplora:
         with patch("saturnzap.config.httpx.get", return_value=ok):
             result = resolve_esplora("bitcoin")
             assert result == ESPLORA_FALLBACKS["bitcoin"][0]
+
+
+# ── data_dir / config_dir / load_config ──────────────────────────
+
+
+class TestPaths:
+    def test_data_dir_creates_directory(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        from saturnzap.config import data_dir
+        d = data_dir()
+        assert d.is_dir()
+        assert "saturnzap" in str(d)
+
+    def test_config_dir_creates_directory(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        from saturnzap.config import config_dir
+        d = config_dir()
+        assert d.is_dir()
+        assert "saturnzap" in str(d)
+
+
+class TestLoadConfig:
+    def test_load_config_defaults(self, tmp_path, monkeypatch):
+        """Without a config file, defaults should be returned."""
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        from saturnzap.config import load_config
+        cfg = load_config()
+        assert cfg["network"] == "signet"
+
+    def test_load_config_from_toml(self, tmp_path, monkeypatch):
+        """A valid config.toml should be loaded."""
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        from saturnzap.config import config_path
+        path = config_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('[default]\nnetwork = "testnet"\n')
+
+        from saturnzap.config import load_config
+        cfg = load_config()
+        assert "default" in cfg  # TOML section loaded
+
+    def test_load_liquidity_config_defaults(self, tmp_path, monkeypatch):
+        """Liquidity config should have sane defaults without a config file."""
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        from saturnzap.config import load_liquidity_config
+        cfg = load_liquidity_config()
+        assert cfg["outbound_threshold_percent"] == 20
+        assert cfg["inbound_threshold_percent"] == 20
+        assert cfg["auto_open_enabled"] is False
+
+    def test_load_liquidity_config_override(self, tmp_path, monkeypatch):
+        """Liquidity section in TOML should override defaults."""
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        from saturnzap.config import config_path
+        path = config_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("[liquidity]\noutbound_threshold_percent = 30\n")
+
+        from saturnzap.config import load_liquidity_config
+        cfg = load_liquidity_config()
+        assert cfg["outbound_threshold_percent"] == 30
+        assert cfg["inbound_threshold_percent"] == 20  # default preserved

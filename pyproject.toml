@@ -62,6 +62,9 @@ select = ["E", "F", "W", "I", "UP", "S", "B", "A", "SIM"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "live: requires running SaturnZap nodes on droplets (deselect with '-m not live')",
+]
 
 [dependency-groups]
 dev = [
