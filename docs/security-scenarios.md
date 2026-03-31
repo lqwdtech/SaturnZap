@@ -117,11 +117,12 @@
 **Current protection:**
 - The agent must explicitly call `sz send` with an address and amount
 - Pre-flight balance check limits the damage to current balance
-- Signet-only during development (no real monetary value)
+- Mainnet confirmation prompt requires `--yes` or `SZ_MAINNET_CONFIRM=yes` before spending real bitcoin
+- Network-namespaced data directories isolate signet and mainnet wallets
 
-**Gap:** No address verification, allowlist, or confirmation step. If the agent decides to send, it sends.
+**Gap:** No address verification, allowlist, or per-session spending total. If the agent decides to send and confirms, it sends.
 
-**Mitigation:** When mainnet is supported, add address confirmation, allowlists, and mandatory `--max-sats` for all sends.
+**Mitigation:** Use address allowlists, mandatory `--max-sats` for all sends, and per-session spending limits in a future version.
 
 ---
 

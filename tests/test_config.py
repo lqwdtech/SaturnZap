@@ -138,3 +138,73 @@ class TestLoadConfig:
         cfg = load_liquidity_config()
         assert cfg["outbound_threshold_percent"] == 30
         assert cfg["inbound_threshold_percent"] == 20  # default preserved
+
+
+# ── Network switching ────────────────────────────────────────────
+
+
+class TestNetworkSwitching:
+    def test_set_network_changes_get_network(self):
+        import saturnzap.config as cfg
+        old = cfg._active_network
+        try:
+            cfg.set_network("bitcoin")
+            assert cfg.get_network() == "bitcoin"
+            cfg.set_network("signet")
+            assert cfg.get_network() == "signet"
+        finally:
+            cfg._active_network = old
+
+    def test_set_network_invalid_raises(self):
+        import saturnzap.config as cfg
+        import pytest
+        with pytest.raises(ValueError, match="Invalid network"):
+            cfg.set_network("regtest")
+
+    def test_data_dir_namespaced_by_network(self, tmp_path, monkeypatch):
+        import saturnzap.config as cfg
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+        old = cfg._active_network
+        try:
+            cfg.set_network("signet")
+            d = cfg.data_dir()
+            assert d.name == "signet"
+            assert d.parent.name == "saturnzap"
+
+            cfg.set_network("bitcoin")
+            d = cfg.data_dir()
+            assert d.name == "bitcoin"
+        finally:
+            cfg._active_network = old
+
+    def test_get_network_reads_config_toml(self, tmp_path, monkeypatch):
+        import saturnzap.config as cfg
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        old = cfg._active_network
+        try:
+            cfg._active_network = None
+            path = cfg.config_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('network = "testnet"\n')
+            assert cfg.get_network() == "testnet"
+        finally:
+            cfg._active_network = old
+
+    def test_cli_override_beats_config(self, tmp_path, monkeypatch):
+        import saturnzap.config as cfg
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        old = cfg._active_network
+        try:
+            path = cfg.config_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('network = "testnet"\n')
+            cfg.set_network("bitcoin")
+            assert cfg.get_network() == "bitcoin"
+        finally:
+            cfg._active_network = old
+
+    def test_valid_networks_constant(self):
+        from saturnzap.config import VALID_NETWORKS
+        assert "signet" in VALID_NETWORKS
+        assert "testnet" in VALID_NETWORKS
+        assert "bitcoin" in VALID_NETWORKS

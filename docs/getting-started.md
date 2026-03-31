@@ -49,6 +49,10 @@ uv pip install saturnzap \
 
 ## Quick Start
 
+> **Default network:** All examples use signet (the default). To use mainnet, add
+> `--network bitcoin` before the subcommand: `sz --network bitcoin init`.
+> See [Configuration](configuration.md#networks) for details.
+
 ### 1. Set your passphrase
 
 The passphrase encrypts your seed on disk. Set it as an environment variable so
@@ -75,6 +79,7 @@ Output:
 ```json
 {
   "status": "ok",
+  "network": "signet",
   "mnemonic": "abandon ability able about above ... (24 words)",
   "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b...",
   "seed_path": "/home/agent/.local/share/saturnzap/seed.enc",
@@ -136,6 +141,12 @@ With a spending cap for safety:
 
 ```bash
 sz pay --invoice lnbc1... --max-sats 500
+```
+
+On mainnet, spending commands require confirmation (or `--yes` to skip):
+
+```bash
+sz --network bitcoin pay --invoice lnbc1... --yes
 ```
 
 ### 6. Fetch an L402 resource

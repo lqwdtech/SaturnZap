@@ -98,8 +98,9 @@ def test_error_message_preserved(capsys):
 
 
 def test_ok_empty_payload(capsys):
-    """ok() with no extra fields should still have status."""
+    """ok() with no extra fields should still have status and network."""
     output.ok()
     captured = capsys.readouterr()
     data = json.loads(captured.out)
-    assert data == {"status": "ok"}
+    assert data["status"] == "ok"
+    assert "network" in data

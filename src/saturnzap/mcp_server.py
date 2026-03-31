@@ -101,9 +101,9 @@ def setup_wallet(
             "mnemonic": mnemonic, "seed_path": str(path),
         })
 
-    from saturnzap.config import load_config
+    from saturnzap.config import get_network
     addr = node.new_onchain_address()
-    network = load_config().get("network", "signet")
+    network = get_network()
     steps.append({"step": "address", "address": addr, "network": network})
 
     if auto:
@@ -157,10 +157,10 @@ def stop_node() -> dict[str, str]:
 def new_onchain_address() -> dict[str, str]:
     """Generate a new on-chain receive address (for funding the wallet)."""
     from saturnzap import node
-    from saturnzap.config import load_config
 
     addr = node.new_onchain_address()
-    return {"address": addr, "network": load_config().get("network", "signet")}
+    from saturnzap.config import get_network
+    return {"address": addr, "network": get_network()}
 
 
 @mcp.tool()

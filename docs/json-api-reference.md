@@ -12,9 +12,13 @@ All responses include a `"status"` field: `"ok"` on success, `"error"` on failur
 ```json
 {
   "status": "ok",
+  "network": "signet",
   ...fields
 }
 ```
+
+Every success response includes a `"network"` field indicating the active Bitcoin
+network (`"signet"`, `"testnet"`, or `"bitcoin"`).
 
 ### Error
 
@@ -37,6 +41,7 @@ Errors are written to **stderr** and the process exits with a non-zero code.
 ```json
 {
   "status": "ok",
+  "network": "signet",
   "mnemonic": "abandon ability able about above absent absorb ... (24 words)",
   "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b1fe3cc2550d7437afe5df59e50",
   "seed_path": "/home/user/.local/share/saturnzap/seed.enc",
@@ -49,6 +54,7 @@ Errors are written to **stderr** and the process exits with a non-zero code.
 ```json
 {
   "status": "ok",
+  "network": "signet",
   "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b1fe3cc2550d7437afe5df59e50",
   "message": "Node started."
 }
@@ -59,6 +65,7 @@ Errors are written to **stderr** and the process exits with a non-zero code.
 ```json
 {
   "status": "ok",
+  "network": "signet",
   "message": "Node stopped."
 }
 ```

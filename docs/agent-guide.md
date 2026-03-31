@@ -16,11 +16,11 @@ For quick command reference, see `skills/saturnzap/SKILL.md`. For JSON output sh
 - Pre-flight balance checks (payments fail with clear errors before attempting)
 - Spending caps (enforce `--max-sats` on every outbound payment)
 - L402 auto-pay (HTTP 402 detection, automatic invoice payment, token caching)
-- Signet safety (development network — no real money at risk)
+- Multi-network support (signet for development, mainnet for production)
+- Mainnet safety prompts (confirmation before spending real bitcoin)
 
 **No, if the agent needs:**
 
-- Mainnet payments (SaturnZap is signet-only during development)
 - Custodial simplicity (SaturnZap requires seed management)
 - Instant setup with no node sync (first start requires Neutrino/Esplora sync)
 - Multi-currency support (Lightning/BTC only)
@@ -194,4 +194,5 @@ else:
 4. Never emit the mnemonic after initial `sz init`
 5. Use `sz backup` before risky operations
 6. Monitor channel health with `sz liquidity status`
-7. Keep the wallet on signet until mainnet is explicitly supported
+7. Use `--network signet` (or leave the default) until ready for mainnet
+8. On mainnet, use `--yes` or `SZ_MAINNET_CONFIRM=yes` only in pipelines you trust

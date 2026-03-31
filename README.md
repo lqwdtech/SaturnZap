@@ -86,8 +86,9 @@ the infrastructure is the business.
   Designed for machine consumption from day one.
 - **MCP-native** — Built-in MCP server exposes 22 tools over stdio. Connect Claude,
   Cursor, VS Code, or any MCP-compatible agent with a single config block.
-- **Autonomous** — No interactive prompts. No human confirmation flows. Designed to run
-  inside agent runtimes, shell scripts, and orchestration pipelines.
+- **Autonomous** — No interactive prompts in normal operation. Designed to run
+  inside agent runtimes, shell scripts, and orchestration pipelines. (Mainnet
+  spending commands prompt for confirmation unless `--yes` is passed.)
 
 ---
 
@@ -230,6 +231,13 @@ Signet/testnet node details maintained separately for development.
 
 All commands output JSON to stdout. Errors exit with code 1, written to stderr.
 
+**Global options:**
+
+```bash
+sz --network signet|testnet|bitcoin <command>   # Select Bitcoin network (default: signet)
+sz --pretty <command>                             # Pretty-print JSON output
+```
+
 ### Node
 
 ```bash
@@ -249,6 +257,7 @@ sz status                        # Node pubkey, sync state, peer/channel counts
 sz address                       # New on-chain receiving address
 sz send <address>                # Send all on-chain sats to address
 sz send <address> -a 50000       # Send specific amount on-chain
+sz send <address> --yes          # Skip mainnet confirmation prompt
 sz balance                       # Onchain + lightning balances, per-channel breakdown
 sz transactions --limit 20       # Payment history
 ```
@@ -275,6 +284,9 @@ sz channels open --lsp lqwd --amount-sats 100000
 # Open via LQWD in a specific region
 sz channels open --lsp lqwd --region JP --amount-sats 100000
 
+# Skip mainnet confirmation (for automation)
+sz channels open --lsp lqwd --amount-sats 100000 --yes
+
 sz channels close --channel-id <id>
 sz channels close --channel-id <id> --force
 
@@ -289,7 +301,9 @@ sz invoice --amount-sats 1000 --memo "for data"
 sz invoice --amount-sats 1000 --wait    # Block until paid or expired
 sz pay --invoice lnbc1...
 sz pay --invoice lnbc1... --max-sats 500    # spending cap for agent safety
+sz pay --invoice lnbc1... --yes             # skip mainnet confirmation
 sz keysend --pubkey <pubkey> --amount-sats 100
+sz keysend --pubkey <pubkey> --amount-sats 100 --yes
 ```
 
 ### L402 — Autonomous API Payments
@@ -361,6 +375,7 @@ enforce a global per-request spending cap on L402 payments.
 ```json
 {
   "status": "ok",
+  "network": "signet",
   "onchain_sats": 0,
   "lightning_sats": 45000,
   "channels": [
@@ -382,6 +397,7 @@ enforce a global per-request spending cap on L402 payments.
 ```json
 {
   "status": "ok",
+  "network": "signet",
   "payment_hash": "def456...",
   "amount_sats": 1000,
   "fee_sats": 1,
@@ -394,6 +410,7 @@ enforce a global per-request spending cap on L402 payments.
 ```json
 {
   "status": "ok",
+  "network": "signet",
   "url": "https://api.example.com/data",
   "payment_hash": "ghi789...",
   "amount_sats": 10,
@@ -506,7 +523,7 @@ enforce a global per-request spending cap on L402 payments.
 | **OS** | Ubuntu 24.04 (DigitalOcean Droplet, 2GB RAM / 2 vCPU) |
 | **Editor** | VS Code via Remote SSH |
 | **Python** | 3.12 |
-| **Network** | Bitcoin signet (preferred — more predictable than testnet3) |
+| **Network** | Bitcoin signet (default) / testnet / mainnet — selectable via `--network` |
 | **Chain source** | Esplora REST API with automatic fallback chain |
 | **LQWD nodes** | 18 regions, pubkeys embedded in `src/saturnzap/lqwd.py` |
 
@@ -584,12 +601,21 @@ Inbound liquidity requests via LQWD. Geography-aware peer selection across 18 re
 MCP server with 20 tools. Esplora fallback chain. GitHub Actions CI/CD.
 PyPI packaging. OpenClaw skill definition. Security scanner (Grade A+).
 
+### Phase 7 — Mainnet Support ✅
+
+`sz --network bitcoin`
+
+Network selection via CLI flag (`--network signet|testnet|bitcoin`), config.toml, or
+default. Network-namespaced data directories isolate wallets per network. Real LQWD
+mainnet node directory (18 nodes). Mainnet safety confirmation prompt on spending
+commands, skippable with `--yes` flag or `SZ_MAINNET_CONFIRM=yes`. Network field
+included in all JSON responses.
+
 ### Upcoming
 
 - PyPI publish (trusted publisher workflow ready)
 - Docker image
 - OpenClaw ClawHub listing
-- Network progression (signet → testnet → mainnet)
 
 ---
 

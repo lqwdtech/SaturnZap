@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from ldk_node import Builder, Network, Node, default_config
 
-from saturnzap.config import data_dir, load_config, resolve_esplora
+from saturnzap.config import data_dir, get_network, load_config, resolve_esplora
 
 _node: Node | None = None
 
@@ -31,7 +31,7 @@ def _network_from_str(name: str) -> Network:
 def build_node(mnemonic: str) -> Node:
     """Configure and build an LDK Node instance (does not start it)."""
     cfg = load_config()
-    network_name = cfg.get("network", "signet")
+    network_name = get_network()
     network = _network_from_str(network_name)
     esplora_url = resolve_esplora(network_name, cfg.get("esplora_url"))
 
@@ -97,7 +97,7 @@ def get_status() -> dict:
     return {
         "pubkey": node.node_id(),
         "is_running": st.is_running,
-        "network": load_config().get("network", "signet"),
+        "network": get_network(),
         "block_height": st.current_best_block.height,
         "block_hash": st.current_best_block.block_hash,
         "latest_wallet_sync": st.latest_onchain_wallet_sync_timestamp,

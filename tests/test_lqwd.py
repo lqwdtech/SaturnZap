@@ -104,3 +104,50 @@ def test_each_node_has_required_fields():
         assert "pubkey" in n
         assert "address" in n
         assert "utc_offset" in n
+
+
+# ── Mainnet node directory ───────────────────────────────────────
+
+
+def test_mainnet_nodes_have_18_entries():
+    assert len(lqwd.MAINNET_NODES) == 18
+
+
+def test_mainnet_nodes_have_real_pubkeys():
+    for n in lqwd.MAINNET_NODES:
+        assert len(n["pubkey"]) == 66
+        assert n["pubkey"] != "0" * 66
+
+
+def test_mainnet_nodes_have_real_addresses():
+    for n in lqwd.MAINNET_NODES:
+        assert "placeholder" not in n["address"]
+        assert ":" in n["address"]
+
+
+def test_mainnet_all_regions():
+    regions = {n["region"] for n in lqwd.MAINNET_NODES}
+    assert regions == EXPECTED_REGIONS
+
+
+def test_list_nodes_uses_mainnet_when_bitcoin():
+    import saturnzap.config as cfg
+    old = cfg._active_network
+    try:
+        cfg.set_network("bitcoin")
+        nodes = lqwd.list_nodes()
+        assert nodes[0]["pubkey"] != "0" * 64 + "01"
+        assert len(nodes[0]["pubkey"]) == 66
+    finally:
+        cfg._active_network = old
+
+
+def test_list_nodes_uses_signet_by_default():
+    import saturnzap.config as cfg
+    old = cfg._active_network
+    try:
+        cfg._active_network = None
+        nodes = lqwd.list_nodes()
+        assert "placeholder" in nodes[0]["address"]
+    finally:
+        cfg._active_network = old

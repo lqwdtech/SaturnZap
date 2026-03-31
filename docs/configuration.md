@@ -2,9 +2,10 @@
 
 SaturnZap uses three configuration sources, checked in this order:
 
-1. **Environment variables** — highest priority
-2. **`.env` file** — loaded automatically from the working directory
-3. **Config file** — `config.toml` in the OS config directory
+1. **CLI `--network` flag** — highest priority (overrides everything)
+2. **Environment variables**
+3. **`.env` file** — loaded automatically from the working directory
+4. **Config file** — `config.toml` in the OS config directory
 
 ---
 
@@ -25,7 +26,7 @@ esplora_url = "https://mempool.space/signet/api"
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `network` | string | `"signet"` | Bitcoin network: `signet`, `testnet`, `regtest`, or `bitcoin` |
+| `network` | string | `"signet"` | Bitcoin network: `signet`, `testnet`, or `bitcoin` |
 | `esplora_url` | string | `"https://mempool.space/signet/api"` | Esplora REST API endpoint. Overrides the fallback chain. |
 
 ### Liquidity Config
@@ -55,6 +56,7 @@ auto_open_enabled = false
 | `SZ_PRETTY` | Set to `1` for pretty-printed JSON output. | `0` |
 | `SZ_REGION` | Force a specific LQWD region (e.g. `JP`, `CA`, `US`). | Auto-detect from timezone |
 | `SZ_MCP_MAX_SPEND_SATS` | Global per-request spending cap for MCP `l402_fetch` tool. | No limit |
+| `SZ_MAINNET_CONFIRM` | Set to `yes` to skip mainnet safety confirmation prompts. | — (prompts) |
 | `XDG_DATA_HOME` | Override the data directory base path. | `~/.local/share` |
 | `XDG_CONFIG_HOME` | Override the config directory base path. | `~/.config` |
 
@@ -74,9 +76,28 @@ SZ_REGION=CA
 
 ## Data Directory
 
-Location (Linux): `~/.local/share/saturnzap/`
+Location (Linux): `~/.local/share/saturnzap/<network>/`
 
-Contents:
+Data directories are **namespaced by network**. Each network gets its own isolated
+directory with its own seed, channels, and state:
+
+```
+~/.local/share/saturnzap/
+├── signet/         # Default development wallet
+│   ├── seed.enc
+│   ├── seed.salt
+│   ├── ldk/
+│   └── node.active
+├── bitcoin/        # Mainnet wallet (separate keys, separate channels)
+│   ├── seed.enc
+│   ├── seed.salt
+│   ├── ldk/
+│   └── node.active
+└── testnet/        # Testnet wallet
+    └── ...
+```
+
+Contents per network directory:
 
 | Path | Description |
 |---|---|
@@ -87,6 +108,9 @@ Contents:
 | `node.active` | Flag file indicating the node should be running |
 
 All files are created automatically on `sz init`.
+
+> **Important:** Switching networks with `--network` creates a completely separate
+> wallet. Your signet seed and channels are never shared with mainnet.
 
 ### Permissions
 
@@ -122,17 +146,38 @@ esplora_url = "https://your-esplora.example.com/api"
 
 ## Networks
 
-SaturnZap supports four Bitcoin networks:
+SaturnZap supports three Bitcoin networks:
 
 | Network | Use Case | Config Value |
 |---|---|---|
 | **Signet** | Development and testing (default) | `"signet"` |
 | **Testnet** | Integration testing | `"testnet"` |
-| **Regtest** | Local development | `"regtest"` |
 | **Bitcoin** | Production (mainnet) | `"bitcoin"` |
 
-> **Warning:** Do not use `"bitcoin"` (mainnet) until SaturnZap has been thoroughly
-> tested on signet and testnet. The default is `"signet"` for safety.
+### Selecting a Network
+
+Three ways to select a network (highest priority first):
+
+1. **CLI flag:** `sz --network bitcoin status`
+2. **Config file:** `network = "bitcoin"` in `config.toml`
+3. **Default:** `"signet"` if nothing is set
+
+### Mainnet Safety
+
+When the active network is `bitcoin`, commands that spend funds (`send`, `pay`,
+`keysend`, `channels open`) display a confirmation prompt:
+
+```
+⚠ MAINNET — This will spend real bitcoin. Continue? [y/N]
+```
+
+To skip the prompt (for automation):
+
+- Pass `--yes` / `-y` to the command
+- Set `SZ_MAINNET_CONFIRM=yes` in the environment
+
+> **Warning:** The default network is `"signet"`. Do not use `"bitcoin"` until you
+> have tested your workflow on signet.
 
 ---
 

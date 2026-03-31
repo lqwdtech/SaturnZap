@@ -31,7 +31,9 @@ def _dump(data: dict[str, Any]) -> str:
 
 def ok(**fields: Any) -> None:
     """Write a success JSON envelope to stdout and exit 0."""
-    payload = {"status": "ok", **fields}
+    from saturnzap.config import get_network
+
+    payload = {"status": "ok", "network": get_network(), **fields}
     sys.stdout.write(_dump(payload) + "\n")
     sys.stdout.flush()
 

@@ -67,16 +67,44 @@ app = typer.Typer(
 )
 
 
+def _confirm_mainnet(yes: bool = False) -> None:
+    """Prompt for confirmation when spending on mainnet.
+
+    Skippable with ``--yes`` flag or ``SZ_MAINNET_CONFIRM=yes`` env var.
+    """
+    from saturnzap.config import get_network
+
+    if get_network() != "bitcoin":
+        return
+    if yes or os.environ.get("SZ_MAINNET_CONFIRM", "").lower() == "yes":
+        return
+    if not typer.confirm(
+        "\u26a0  MAINNET — This will spend real bitcoin. Continue?",
+        default=False,
+    ):
+        output.error("CANCELLED", "Mainnet operation cancelled by user.")
+
+
 @app.callback()
 def main(
     pretty: Annotated[
         bool,
         typer.Option("--pretty", help="Pretty-print JSON output."),
     ] = False,
+    network: Annotated[
+        str | None,
+        typer.Option(
+            "--network",
+            help="Bitcoin network: signet, testnet, bitcoin.",
+        ),
+    ] = None,
 ) -> None:
     """SaturnZap — Lightning wallet for autonomous AI agents."""
     if pretty or os.environ.get("SZ_PRETTY", "") == "1":
         output.set_pretty(True)
+    if network:
+        from saturnzap.config import set_network
+        set_network(network)
 
 
 # ── Phase 1 commands ─────────────────────────────────────────────
@@ -157,7 +185,8 @@ def setup(
 
     # Step 2: Generate a receive address
     addr = node_mod.new_onchain_address()
-    network = node_mod.load_config().get("network", "signet")
+    from saturnzap.config import get_network
+    network = get_network()
     steps.append({"step": "address", "address": addr, "network": network})
 
     # Step 3 (--auto only): Request inbound liquidity from LQWD
@@ -291,7 +320,8 @@ def address() -> None:
     from saturnzap import node as node_mod
 
     addr = node_mod.new_onchain_address()
-    output.ok(address=addr, network=node_mod.load_config().get("network", "signet"))
+    from saturnzap.config import get_network
+    output.ok(address=addr, network=get_network())
 
 
 @app.command()
@@ -304,10 +334,15 @@ def send(
         int | None,
         typer.Option("--amount", "-a", help="Amount in sats (omit to send all)."),
     ] = None,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Skip mainnet confirmation prompt."),
+    ] = False,
 ) -> None:
     """Send sats on-chain to an address."""
     from saturnzap import node as node_mod
 
+    _confirm_mainnet(yes)
     txid = node_mod.send_onchain(address, amount_sats)
     output.ok(txid=txid, amount_sats=amount_sats, send_all=amount_sats is None)
 
@@ -370,10 +405,15 @@ def pay(
         int | None,
         typer.Option("--max-sats", help="Spending cap in sats"),
     ] = None,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Skip mainnet confirmation prompt."),
+    ] = False,
 ) -> None:
     """Pay a BOLT11 invoice."""
     from saturnzap import payments
 
+    _confirm_mainnet(yes)
     info = payments.pay_invoice(invoice_str, max_sats)
     output.ok(**info, message="Payment sent.")
 
@@ -388,10 +428,15 @@ def keysend(
         int,
         typer.Option("--amount-sats", help="Amount to send in sats"),
     ],
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Skip mainnet confirmation prompt."),
+    ] = False,
 ) -> None:
     """Send a spontaneous keysend payment."""
     from saturnzap import payments
 
+    _confirm_mainnet(yes)
     info = payments.keysend(pubkey, amount_sats)
     output.ok(**info, message="Keysend sent.")
 
@@ -486,9 +531,15 @@ def channels_open(
         bool,
         typer.Option(help="Announce channel to the network"),
     ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Skip mainnet confirmation prompt."),
+    ] = False,
 ) -> None:
     """Open a channel to a peer or via an LSP."""
     from saturnzap import node as node_mod
+
+    _confirm_mainnet(yes)
 
     if peer and lsp:
         output.error(

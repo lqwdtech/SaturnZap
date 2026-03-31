@@ -389,3 +389,102 @@ def test_pretty_flag(mock_node):
     assert "  " in result.output
     data = json.loads(result.output)
     assert data["status"] == "ok"
+
+
+# ── --network flag ──────────────────────────────────────────────
+
+
+def test_network_flag_shows_in_help():
+    from tests.conftest import strip_ansi
+    result = runner.invoke(app, ["--help"])
+    out = strip_ansi(result.output)
+    assert "--network" in out
+
+
+def test_network_flag_sets_active_network(mock_node):
+    mock_node.onchain_payment.return_value.new_address.return_value = "tb1qnew"
+
+    with patch("saturnzap.node._require_node", return_value=mock_node):
+        result = runner.invoke(app, ["--network", "signet", "address"])
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["network"] == "signet"
+
+
+def test_network_invalid_value():
+    result = runner.invoke(app, ["--network", "regtest", "status"])
+    assert result.exit_code != 0
+
+
+# ── Mainnet confirmation prompt ──────────────────────────────────
+
+
+def test_send_mainnet_requires_confirmation(mock_node):
+    """send on mainnet without --yes should prompt and cancel."""
+    import saturnzap.config as cfg
+    old = cfg._active_network
+    try:
+        cfg.set_network("bitcoin")
+        mock_node.onchain_payment.return_value.send_to_address.return_value = "txid"
+        with patch("saturnzap.node._require_node", return_value=mock_node):
+            result = runner.invoke(app, ["send", "bc1qtest", "--amount", "1000"],
+                                   input="n\n")
+        assert result.exit_code != 0
+    finally:
+        cfg._active_network = old
+
+
+def test_send_mainnet_yes_skips_prompt(mock_node):
+    """send on mainnet with --yes should skip confirmation."""
+    import saturnzap.config as cfg
+    old = cfg._active_network
+    try:
+        cfg.set_network("bitcoin")
+        mock_node.onchain_payment.return_value.send_to_address.return_value = "txid"
+        with patch("saturnzap.node._require_node", return_value=mock_node):
+            result = runner.invoke(
+                app, ["send", "bc1qtest", "--amount", "1000", "--yes"],
+            )
+        assert result.exit_code == 0
+    finally:
+        cfg._active_network = old
+
+
+def test_send_signet_no_prompt(mock_node):
+    """send on signet should not prompt for confirmation."""
+    import saturnzap.config as cfg
+    old = cfg._active_network
+    try:
+        cfg.set_network("signet")
+        mock_node.onchain_payment.return_value.send_to_address.return_value = "txid"
+        with patch("saturnzap.node._require_node", return_value=mock_node):
+            result = runner.invoke(app, ["send", "tb1qtest", "--amount", "1000"])
+        assert result.exit_code == 0
+    finally:
+        cfg._active_network = old
+
+
+def test_send_mainnet_env_confirm(mock_node, monkeypatch):
+    """SZ_MAINNET_CONFIRM=yes should skip prompt on mainnet."""
+    import saturnzap.config as cfg
+    monkeypatch.setenv("SZ_MAINNET_CONFIRM", "yes")
+    old = cfg._active_network
+    try:
+        cfg.set_network("bitcoin")
+        mock_node.onchain_payment.return_value.send_to_address.return_value = "txid"
+        with patch("saturnzap.node._require_node", return_value=mock_node):
+            result = runner.invoke(app, ["send", "bc1qtest", "--amount", "1000"])
+        assert result.exit_code == 0
+    finally:
+        cfg._active_network = old
+
+
+# ── Network field in all JSON output ─────────────────────────────
+
+
+def test_output_always_includes_network(mock_node):
+    with patch("saturnzap.node._require_node", return_value=mock_node):
+        result = runner.invoke(app, ["balance"])
+    data = json.loads(result.output)
+    assert "network" in data
