@@ -100,25 +100,29 @@ the infrastructure is the business.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                      sz CLI                             │
-│   (agent calls commands, parses JSON from stdout)       │
-└───────────────────────┬─────────────────────────────────┘
-                        │
-┌───────────────────────▼─────────────────────────────────┐
-│                   Wallet Core                           │
+│                    Integration Layer                    │
 │                                                         │
-│  node.py        — LDK Node lifecycle, channels, peers   │
-│  payments.py    — send, receive, invoice, keysend       │
-│  l402.py        — HTTP 402 intercept, pay, retry        │
-│  liquidity.py   — channel health, recommendations       │
-│  keystore.py    — BIP39 seed, encrypted at rest         │
-│  lqwd.py        — LQWD 18-region node directory         │
-│  config.py      — config paths, Esplora fallback chain  │
-│  mcp_server.py  — MCP server (Model Context Protocol)   │
-│  output.py      — JSON formatting, TTY detection        │
-└───────────────────────┬─────────────────────────────────┘
-                        │
-┌───────────────────────▼─────────────────────────────────┐
+│  sz CLI          MCP Server         OpenClaw Skill      │
+│  (typer)         (FastMCP/stdio)    (gateway)           │
+│      │               │                  │               │
+│      └───────────────┼──────────────────┘               │
+│                      │                                  │
+│              ┌───────▼───────┐                          │
+│              │  IPC Client   │  (auto-detect daemon)    │
+│              └───────┬───────┘                          │
+└──────────────────────┼──────────────────────────────────┘
+                       │ Unix Domain Socket (sz.sock)
+┌──────────────────────▼──────────────────────────────────┐
+│              Daemon (sz start --daemon)                  │
+│                                                         │
+│  IPC Server (asyncio) ─── Wallet Core                   │
+│  22 JSON methods          node.py, payments.py, l402.py │
+│  threading.Lock           liquidity.py, keystore.py     │
+│  0600 socket perms        lqwd.py, config.py, output.py │
+│                           ipc.py                        │
+└──────────────────────┬──────────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────┐
 │                    LDK Node                             │
 │  - Full Lightning protocol implementation               │
 │  - Esplora chain sync (fallback: mempool + blockstream) │
@@ -135,6 +139,14 @@ the infrastructure is the business.
 ```
 
 ### Key Design Decisions
+
+#### Unix Domain Socket IPC
+
+The daemon (`sz start --daemon`) owns the LDK node and exposes 22 methods over a Unix
+Domain Socket at `~/.local/share/saturnzap/<network>/sz.sock`. CLI commands, the MCP
+server, and OpenClaw automatically detect the daemon and route through IPC — no port
+conflicts, no database locks. If no daemon is running, commands fall back to starting
+an ephemeral node.
 
 #### Esplora chain sync with fallback
 
@@ -245,7 +257,7 @@ sz init                          # Generate seed, start node, peer with nearest 
 sz setup                         # Guided first-run: init + address (idempotent)
 sz setup --auto                  # Non-interactive: init + address + request inbound from LQWD
 sz start                         # Start the node (verify connectivity, then exit)
-sz start --daemon                # Keep node running in foreground (for systemd)
+sz start --daemon                # Keep node running (for systemd); starts IPC server
 sz stop                          # Stop the node daemon
 sz stop --close-all              # Cooperatively close all channels, then stop
 sz status                        # Node pubkey, sync state, peer/channel counts

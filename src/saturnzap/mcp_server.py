@@ -15,10 +15,18 @@ from mcp.server.fastmcp import FastMCP
 
 @asynccontextmanager
 async def _lifespan(server: FastMCP):  # noqa: ARG001
-    """Start the LDK node on server boot, stop it on shutdown."""
-    from saturnzap import keystore, node
+    """Start the LDK node on server boot, stop it on shutdown.
 
-    if keystore.is_initialized():
+    If a daemon is already running with an IPC socket, skip the local
+    node start — all calls will be routed through IPC transparently.
+    """
+    from saturnzap import keystore, node
+    from saturnzap.ipc import daemon_is_running
+
+    if daemon_is_running():
+        # Daemon owns the node — MCP becomes a thin client via IPC.
+        node._ipc_mode = True
+    elif keystore.is_initialized():
         passphrase = keystore.get_passphrase()
         mnemonic = keystore.load_mnemonic(passphrase)
         node.start(mnemonic)

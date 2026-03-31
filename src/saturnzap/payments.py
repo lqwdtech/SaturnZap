@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
-from ldk_node import Bolt11Invoice, Bolt11InvoiceDescription
+from ldk_node import Bolt11Invoice
 
-from saturnzap.node import _require_node
+from saturnzap.node import _require_node, _use_ipc
 
 DEFAULT_INVOICE_EXPIRY_SECS = 3600  # 1 hour
+
+
+def _ipc(method: str, **params: object) -> object:
+    from saturnzap.ipc import ipc_call
+
+    return ipc_call(method, params if params else None)
 
 
 def create_invoice(
@@ -15,6 +21,13 @@ def create_invoice(
     expiry_secs: int = DEFAULT_INVOICE_EXPIRY_SECS,
 ) -> dict:
     """Create a BOLT11 invoice for *amount_sats*."""
+    if _use_ipc():
+        return _ipc(  # type: ignore[return-value]
+            "create_invoice",
+            amount_sats=amount_sats, memo=memo, expiry_secs=expiry_secs,
+        )
+    from ldk_node import Bolt11InvoiceDescription
+
     node = _require_node()
     amount_msat = amount_sats * 1000
     description = Bolt11InvoiceDescription.DIRECT(memo or "SaturnZap invoice")
@@ -32,6 +45,10 @@ def create_variable_invoice(
     expiry_secs: int = DEFAULT_INVOICE_EXPIRY_SECS,
 ) -> dict:
     """Create a BOLT11 invoice with no fixed amount (payer chooses)."""
+    if _use_ipc():
+        return _ipc("create_variable_invoice", memo=memo, expiry_secs=expiry_secs)  # type: ignore[return-value]
+    from ldk_node import Bolt11InvoiceDescription
+
     node = _require_node()
     description = Bolt11InvoiceDescription.DIRECT(memo or "SaturnZap invoice")
     invoice = node.bolt11_payment().receive_variable_amount(description, expiry_secs)
@@ -45,6 +62,8 @@ def create_variable_invoice(
 
 def pay_invoice(invoice_str: str, max_sats: int | None = None) -> dict:
     """Pay a BOLT11 invoice. Optionally enforce a spending cap."""
+    if _use_ipc():
+        return _ipc("pay_invoice", invoice_str=invoice_str, max_sats=max_sats)  # type: ignore[return-value]
     from saturnzap import output
 
     node = _require_node()
@@ -85,6 +104,8 @@ def pay_invoice(invoice_str: str, max_sats: int | None = None) -> dict:
 
 def keysend(pubkey: str, amount_sats: int) -> dict:
     """Send a spontaneous (keysend) payment to *pubkey*."""
+    if _use_ipc():
+        return _ipc("keysend", pubkey=pubkey, amount_sats=amount_sats)  # type: ignore[return-value]
     from saturnzap import output
 
     node = _require_node()
@@ -110,6 +131,8 @@ def keysend(pubkey: str, amount_sats: int) -> dict:
 
 def list_transactions(limit: int = 20) -> list[dict]:
     """Return recent payment history."""
+    if _use_ipc():
+        return _ipc("list_transactions", limit=limit)  # type: ignore[return-value]
     node = _require_node()
     payments = node.list_payments()
 
@@ -182,6 +205,11 @@ def wait_for_payment(
 
     Returns dict with 'paid': True/False and timing info.
     """
+    if _use_ipc():
+        return _ipc(  # type: ignore[return-value]
+            "wait_for_payment",
+            payment_hash=payment_hash, timeout=timeout, poll_interval=poll_interval,
+        )
     import time
 
     node = _require_node()

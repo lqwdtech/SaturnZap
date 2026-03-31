@@ -18,20 +18,28 @@ interface, the wallet core, and the Lightning node runtime.
 │         │                   │                      │            │
 │         └───────────────────┼──────────────────────┘            │
 │                             │                                   │
+│                    ┌────────▼────────┐                          │
+│                    │   IPC Client    │ (auto-detect daemon)     │
+│                    │   UDS socket    │                          │
+│                    └────────┬────────┘                          │
 └─────────────────────────────┼───────────────────────────────────┘
-                              │
+                              │ Unix Domain Socket (sz.sock)
 ┌─────────────────────────────▼───────────────────────────────────┐
-│                       Wallet Core                               │
+│                  Daemon (sz start --daemon)                      │
 │                                                                 │
-│  node.py        — LDK Node lifecycle, channels, peers           │
-│  payments.py    — BOLT11 send/receive, keysend, history         │
-│  l402.py        — HTTP 402 intercept → pay invoice → retry      │
-│  liquidity.py   — channel health scoring, recommendations       │
-│  keystore.py    — BIP39 seed, PBKDF2 + Fernet encryption       │
-│  lqwd.py        — LQWD 18-region node directory                 │
-│  config.py      — config paths, Esplora fallback resolver       │
-│  output.py      — JSON envelope formatting, TTY detection       │
-│                                                                 │
+│  ┌──────────────┐  ┌───────────────────────────────────────┐    │
+│  │  IPC Server   │  │           Wallet Core                 │    │
+│  │  (asyncio     │  │                                       │    │
+│  │   UDS server) │──│  node.py     — LDK Node lifecycle     │    │
+│  │  22 methods   │  │  payments.py — BOLT11 send/receive    │    │
+│  └──────────────┘  │  l402.py     — L402 HTTP interceptor   │    │
+│                    │  liquidity.py — channel health          │    │
+│                    │  keystore.py  — BIP39 seed encryption   │    │
+│                    │  lqwd.py      — LQWD node directory     │    │
+│                    │  config.py    — configuration           │    │
+│                    │  output.py    — JSON formatting         │    │
+│                    │  ipc.py       — IPC protocol/server     │    │
+│                    └───────────────────────────────────────┘    │
 └─────────────────────────────┬───────────────────────────────────┘
                               │
 ┌─────────────────────────────▼───────────────────────────────────┐
@@ -79,8 +87,24 @@ Manages the LDK Node instance. Key pattern: `_require_node()` auto-starts the no
 from the encrypted seed on first call. Subsequent calls within the same process reuse
 the cached instance.
 
+When a daemon is running, `_use_ipc()` auto-detects the IPC socket and routes all
+public function calls through it. The local LDK node is never touched in IPC mode.
+
 Functions: `build_node()`, `start()`, `stop()`, `get_status()`, `_require_node()`,
 `new_onchain_address()`, `get_balance()`, peer management, channel management.
+
+### `ipc.py` — IPC Layer
+
+Unix Domain Socket IPC layer. The daemon hosts an asyncio UDS server on
+`~/.local/share/saturnzap/<network>/sz.sock`. CLI commands and the MCP server
+connect as thin clients.
+
+Protocol: newline-delimited JSON. 22 methods covering node status, payments,
+channels, liquidity, and L402. Socket permissions: `0600` (owner only).
+Thread-safe: a `threading.Lock` serializes LDK calls on the server side.
+
+Classes: `IPCServer`, `IPCError`, `IPCConnectionError`.
+Functions: `ipc_call()`, `daemon_is_running()`, `build_dispatcher()`.
 
 ### `payments.py` — Lightning Payments
 
@@ -136,12 +160,18 @@ chain data. SaturnZap uses Esplora because:
 - Fallback chain provides resilience: probe multiple servers, use first healthy one
 - Self-hosted Esplora is simple to run (Bitcoin Core + electrs behind Cloudflare)
 
-### Auto-start Pattern
+### Auto-start and IPC Patterns
 
-Each CLI command is a separate process. Instead of requiring a long-running daemon,
-SaturnZap uses `_require_node()` to auto-start the LDK node on first access within
-each process. The MCP server uses a lifespan context to keep the node running for
-the full session.
+Each CLI command is a separate process. The `_use_ipc()` function auto-detects whether
+a daemon is running by probing the IPC socket. If a daemon exists, all calls route
+through Unix Domain Socket IPC (like Docker and lnd). If no daemon is running,
+`_require_node()` auto-starts the LDK node from the encrypted seed.
+
+The MCP server uses the same detection: if a daemon is running, it becomes a thin
+IPC client. Otherwise, it starts its own node via a lifespan context.
+
+This means CLI, MCP, and OpenClaw can all use the wallet simultaneously — no port
+conflicts, no database locks.
 
 ### JSON-first Output
 
@@ -175,6 +205,7 @@ env var) support spending caps. For autonomous agents, this is a critical safety
 | Seed permissions | `0600` on `seed.enc` and `seed.salt` |
 | Passphrase | Environment variable only — never written to disk, never in MCP I/O |
 | MCP transport | stdio only — no network listener, no open ports |
+| IPC socket | Unix Domain Socket with `0600` permissions, owner-only access |
 | L402 tokens | Per-URL cache files with `0600` permissions |
 | Dependencies | pip-audit in pre-commit hook, accepted risks documented |
 | Static analysis | ruff + bandit in pre-commit hook |
@@ -196,7 +227,7 @@ env var) support spending caps. For autonomous agents, this is a critical safety
 | BIP39 | mnemonic | ≥0.21 | Seed phrase generation |
 | Env | python-dotenv | ≥1.2 | `.env` file loading |
 | Build | hatchling | — | PEP 517 build backend |
-| Testing | pytest | ≥8.0 | 95 tests |
+| Testing | pytest | ≥8.0 | 324 tests |
 | Linting | ruff | ≥0.9 | Lint + format |
 | Security | bandit + pip-audit + detect-secrets | — | Pre-commit security scan |
 

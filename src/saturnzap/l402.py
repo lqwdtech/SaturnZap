@@ -130,6 +130,17 @@ def fetch(
     Returns:
         FetchResult with response data and optional payment info.
     """
+    from saturnzap.node import _use_ipc
+
+    if _use_ipc():
+        from saturnzap.ipc import ipc_call
+
+        result = ipc_call("l402_fetch", {
+            "url": url, "method": method, "headers": headers,
+            "body": body, "max_sats": max_sats, "timeout": timeout,
+        })
+        return FetchResult(**result)
+
     req_headers = dict(headers or {})
 
     # Check for a cached token first

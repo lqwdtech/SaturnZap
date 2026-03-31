@@ -8,6 +8,41 @@ from saturnzap.config import data_dir, get_network, load_config, resolve_esplora
 
 _node: Node | None = None
 
+# ── IPC routing ──────────────────────────────────────────────────
+# When a daemon is running, CLI commands become thin clients.  Each
+# public function checks _use_ipc() first; if True, the call is
+# forwarded over the Unix Domain Socket and the local LDK node is
+# never touched.
+
+_ipc_mode: bool = False
+
+
+def _use_ipc() -> bool:
+    """Return True if calls should route through the daemon socket.
+
+    Auto-detects: if no local node is running but a daemon socket
+    exists and is responsive, switch to IPC mode.
+    """
+    global _ipc_mode  # noqa: PLW0603
+    if _ipc_mode:
+        return True
+    if _node is not None:
+        return False
+    # Lazy import to keep module import fast
+    from saturnzap.ipc import daemon_is_running
+
+    if daemon_is_running():
+        _ipc_mode = True
+        return True
+    return False
+
+
+def _ipc(method: str, **params: object) -> object:
+    """Send an IPC call to the daemon.  Convenience wrapper."""
+    from saturnzap.ipc import ipc_call
+
+    return ipc_call(method, params if params else None)
+
 # File that records whether the node should be running (simple PID-less flag)
 _RUNNING_FLAG = "node.active"
 
@@ -64,6 +99,9 @@ def start(mnemonic: str) -> Node:
 def stop() -> None:
     """Stop the running node and clear the flag."""
     global _node
+    # In IPC mode there's no local node to stop.
+    if _ipc_mode:
+        return
     flag = data_dir() / _RUNNING_FLAG
     if _node is not None:
         _node.stop()
@@ -79,6 +117,8 @@ def get_node() -> Node | None:
 
 def get_status() -> dict:
     """Return a JSON-serialisable status dict."""
+    if _use_ipc():
+        return _ipc("get_status")  # type: ignore[return-value]
     import time
 
     node = _require_node()
@@ -134,11 +174,15 @@ def _require_node() -> Node:
 
 def new_onchain_address() -> str:
     """Generate a new on-chain (signet) receive address."""
+    if _use_ipc():
+        return _ipc("new_onchain_address")  # type: ignore[return-value]
     return _require_node().onchain_payment().new_address()
 
 
 def send_onchain(address: str, amount_sats: int | None = None) -> str:
     """Send sats on-chain. If *amount_sats* is None, send all funds."""
+    if _use_ipc():
+        return _ipc("send_onchain", address=address, amount_sats=amount_sats)  # type: ignore[return-value]
     from saturnzap import output
 
     node = _require_node()
@@ -169,6 +213,8 @@ def send_onchain(address: str, amount_sats: int | None = None) -> str:
 
 def get_balance() -> dict:
     """Return on-chain and lightning balances."""
+    if _use_ipc():
+        return _ipc("get_balance")  # type: ignore[return-value]
     node = _require_node()
     node.sync_wallets()
     bal = node.list_balances()
@@ -187,16 +233,24 @@ def get_balance() -> dict:
 
 def connect_peer(node_id: str, address: str, persist: bool = True) -> None:
     """Connect to a peer by pubkey and address (host:port)."""
+    if _use_ipc():
+        _ipc("connect_peer", node_id=node_id, address=address, persist=persist)
+        return
     _require_node().connect(node_id, address, persist)
 
 
 def disconnect_peer(node_id: str) -> None:
     """Disconnect from a peer."""
+    if _use_ipc():
+        _ipc("disconnect_peer", node_id=node_id)
+        return
     _require_node().disconnect(node_id)
 
 
 def list_peers() -> list[dict]:
     """Return list of peers as dicts."""
+    if _use_ipc():
+        return _ipc("list_peers")  # type: ignore[return-value]
     return [
         {
             "node_id": p.node_id,
@@ -239,6 +293,8 @@ def _channel_to_dict(c) -> dict:
 
 def list_channels() -> list[dict]:
     """Return all channels as dicts."""
+    if _use_ipc():
+        return _ipc("list_channels")  # type: ignore[return-value]
     return [_channel_to_dict(c) for c in _require_node().list_channels()]
 
 
@@ -257,6 +313,11 @@ def wait_channel_ready(
     Returns:
         Dict with the ready channel info, or timeout status.
     """
+    if _use_ipc():
+        return _ipc(  # type: ignore[return-value]
+            "wait_channel_ready",
+            channel_id=channel_id, timeout=timeout, poll_interval=poll_interval,
+        )
     import time
 
     node = _require_node()
@@ -302,6 +363,12 @@ def open_channel(
     announce: bool = False,
 ) -> str:
     """Open a channel to a peer. Returns the user_channel_id."""
+    if _use_ipc():
+        return _ipc(  # type: ignore[return-value]
+            "open_channel",
+            node_id=node_id, address=address, amount_sats=amount_sats,
+            push_msat=push_msat, announce=announce,
+        )
     node = _require_node()
     if announce:
         ucid = node.open_announced_channel(
@@ -316,6 +383,13 @@ def open_channel(
 
 def close_channel(channel_id: str, counterparty_node_id: str) -> None:
     """Cooperatively close a channel."""
+    if _use_ipc():
+        _ipc(
+            "close_channel",
+            channel_id=channel_id,
+            counterparty_node_id=counterparty_node_id,
+        )
+        return
     _require_node().close_channel(channel_id, counterparty_node_id)
 
 
@@ -323,4 +397,11 @@ def force_close_channel(
     channel_id: str, counterparty_node_id: str, reason: str | None = None,
 ) -> None:
     """Force-close a channel."""
+    if _use_ipc():
+        _ipc(
+            "force_close_channel",
+            channel_id=channel_id, counterparty_node_id=counterparty_node_id,
+            reason=reason,
+        )
+        return
     _require_node().force_close_channel(channel_id, counterparty_node_id, reason)

@@ -156,8 +156,9 @@ class TestNetworkSwitching:
             cfg._active_network = old
 
     def test_set_network_invalid_raises(self):
-        import saturnzap.config as cfg
         import pytest
+
+        import saturnzap.config as cfg
         with pytest.raises(ValueError, match="Invalid network"):
             cfg.set_network("regtest")
 

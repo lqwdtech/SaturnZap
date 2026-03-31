@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from saturnzap import lqwd, node, output
 from saturnzap.config import load_liquidity_config
+from saturnzap.node import _use_ipc
 
 
 def _health_score(channel: dict) -> int:
@@ -83,6 +84,10 @@ def _generate_recommendations(
 
 def get_status() -> dict:
     """Return a liquidity status report with per-channel health and recommendations."""
+    if _use_ipc():
+        from saturnzap.ipc import ipc_call
+
+        return ipc_call("get_liquidity_status")
     balance = node.get_balance()
     channels = balance["channels"]
     cfg = load_liquidity_config()
@@ -141,6 +146,13 @@ def request_inbound(
     Currently implemented as a channel open with push_msat.
     TODO: Replace with LSPS2 JIT channel request when LQWD fleet supports it.
     """
+    if _use_ipc():
+        from saturnzap.ipc import ipc_call
+
+        return ipc_call(
+            "request_inbound",
+            {"amount_sats": amount_sats, "region": region},
+        )
     if region:
         nodes = lqwd.list_nodes(region)
         if not nodes:

@@ -241,6 +241,13 @@ def start(
     output.ok(pubkey=n.node_id(), message="Node started.")
 
     if daemon:
+        # Start IPC server so CLI commands can talk to this daemon
+        from saturnzap.ipc import IPCServer, build_dispatcher, socket_path
+
+        dispatcher = build_dispatcher()
+        ipc_server = IPCServer(socket_path(), dispatcher)
+        ipc_server.start_background()
+
         # Block forever — systemd sends SIGTERM to stop
         stop_event = False
 
@@ -254,6 +261,7 @@ def start(
         while not stop_event:
             time.sleep(1)
 
+        ipc_server.stop()
         node_mod.stop()
         raise SystemExit(0)
 
