@@ -37,31 +37,43 @@ def mock_node():
 
 
 def test_invoice_help():
+    from tests.conftest import strip_ansi
+
     result = runner.invoke(app, ["invoice", "--help"])
     assert result.exit_code == 0
-    assert "--amount-sats" in result.output
-    assert "--memo" in result.output
-    assert "--expiry" in result.output
+    out = strip_ansi(result.output)
+    assert "--amount-sats" in out
+    assert "--memo" in out
+    assert "--expiry" in out
 
 
 def test_pay_help():
+    from tests.conftest import strip_ansi
+
     result = runner.invoke(app, ["pay", "--help"])
     assert result.exit_code == 0
-    assert "--invoice" in result.output
-    assert "--max-sats" in result.output
+    out = strip_ansi(result.output)
+    assert "--invoice" in out
+    assert "--max-sats" in out
 
 
 def test_keysend_help():
+    from tests.conftest import strip_ansi
+
     result = runner.invoke(app, ["keysend", "--help"])
     assert result.exit_code == 0
-    assert "--pubkey" in result.output
-    assert "--amount-sats" in result.output
+    out = strip_ansi(result.output)
+    assert "--pubkey" in out
+    assert "--amount-sats" in out
 
 
 def test_transactions_help():
+    from tests.conftest import strip_ansi
+
     result = runner.invoke(app, ["transactions", "--help"])
     assert result.exit_code == 0
-    assert "--limit" in result.output
+    out = strip_ansi(result.output)
+    assert "--limit" in out
 
 
 def test_invoice_fails_no_seed():

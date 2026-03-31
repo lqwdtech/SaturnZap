@@ -159,11 +159,14 @@ def test_liquidity_help():
 
 
 def test_setup_help():
+    from tests.conftest import strip_ansi
+
     result = runner.invoke(app, ["setup", "--help"])
     assert result.exit_code == 0
-    assert "--auto" in result.output
-    assert "--region" in result.output
-    assert "--inbound-sats" in result.output
+    out = strip_ansi(result.output)
+    assert "--auto" in out
+    assert "--region" in out
+    assert "--inbound-sats" in out
 
 
 # ── init ─────────────────────────────────────────────────────────

@@ -183,12 +183,15 @@ def test_fetch_spending_cap_exceeded():
 
 
 def test_fetch_help():
+    from tests.conftest import strip_ansi
+
     result = runner.invoke(app, ["fetch", "--help"])
     assert result.exit_code == 0
-    assert "URL" in result.output or "url" in result.output
-    assert "--max-sats" in result.output
-    assert "--header" in result.output
-    assert "--method" in result.output
+    out = strip_ansi(result.output)
+    assert "URL" in out or "url" in out
+    assert "--max-sats" in out
+    assert "--header" in out
+    assert "--method" in out
 
 
 def test_fetch_cli_normal_response():

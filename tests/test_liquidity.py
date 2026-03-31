@@ -204,10 +204,13 @@ def test_liquidity_status_help():
 
 
 def test_liquidity_request_inbound_help():
+    from tests.conftest import strip_ansi
+
     result = runner.invoke(app, ["liquidity", "request-inbound", "--help"])
     assert result.exit_code == 0
-    assert "--amount-sats" in result.output
-    assert "--region" in result.output
+    out = strip_ansi(result.output)
+    assert "--amount-sats" in out
+    assert "--region" in out
 
 
 def test_liquidity_status_cli_mocked():
