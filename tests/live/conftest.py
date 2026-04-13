@@ -98,3 +98,47 @@ class _DropletSSH:
 
         with contextlib.suppress(RuntimeError):
             self.run("pkill -f 'sz start --daemon'; sleep 1; true")
+
+
+class _MainnetDropletSSH(_DropletSSH):
+    """SSH command runner that always passes --network bitcoin."""
+
+    def sz(self, args: str, timeout: int = 120) -> dict:
+        """Run an sz --network bitcoin command and parse JSON output."""
+        import json
+
+        out = self.run(
+            f"{self._SZ_BIN} --network bitcoin {args}",
+            timeout=timeout,
+        )
+        return json.loads(out)
+
+    def start_mainnet_daemon(self) -> None:
+        """Start sz mainnet daemon so node stays warm across tests."""
+        self.run(
+            f"nohup {self._SZ_BIN} --network bitcoin start --daemon "
+            "> /tmp/sz-mainnet-daemon.log 2>&1 & sleep 5",
+            timeout=30,
+        )
+
+    def stop_mainnet_daemon(self) -> None:
+        """Stop the mainnet daemon process."""
+        import contextlib
+
+        with contextlib.suppress(RuntimeError):
+            self.run(
+                f"{self._SZ_BIN} --network bitcoin stop; sleep 1; true"
+            )
+
+
+@pytest.fixture(scope="module")
+def mainnet_droplet():
+    """SSH helper for the main droplet with --network bitcoin.
+
+    Starts a mainnet daemon before all tests in the module and stops
+    it afterwards, so LDK doesn't cold-start on every command.
+    """
+    d = _MainnetDropletSSH("137.184.229.83")
+    d.start_mainnet_daemon()
+    yield d
+    d.stop_mainnet_daemon()

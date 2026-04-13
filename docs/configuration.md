@@ -116,6 +116,17 @@ All files are created automatically on `sz init`.
 
 `seed.enc` and `seed.salt` are set to `0600` (owner read/write only).
 
+### Lightning Listen Ports
+
+Each network uses a distinct Lightning P2P listen port to avoid bind conflicts when
+running multiple networks on the same host:
+
+| Network | Port |
+|---|---|
+| `signet` | 9735 |
+| `testnet` | 9736 |
+| `bitcoin` | 9737 |
+
 ---
 
 ## Esplora Fallback Chain
@@ -129,7 +140,7 @@ ensures the node can sync even if one provider is down.
 |---|---|
 | `signet` | `mempool.space/signet/api` → `blockstream.info/signet/api` |
 | `testnet` | `mempool.space/testnet/api` → `blockstream.info/testnet/api` |
-| `bitcoin` | `mempool.space/api` → `blockstream.info/api` |
+| `bitcoin` | `blockstream.info/api` → `mempool.space/api` |
 
 **Health check:** `GET /blocks/tip/height` with a 3-second timeout. First HTTP 200 wins.
 

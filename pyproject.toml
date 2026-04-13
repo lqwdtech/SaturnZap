@@ -77,6 +77,7 @@ select = ["E", "F", "W", "I", "UP", "S", "B", "A", "SIM"]
 testpaths = ["tests"]
 markers = [
     "live: requires running SaturnZap nodes on droplets (deselect with '-m not live')",
+    "mainnet: requires mainnet wallet on droplet (run with '-m mainnet', never auto-run)",
 ]
 
 [dependency-groups]

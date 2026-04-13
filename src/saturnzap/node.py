@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from ldk_node import Builder, Network, Node, default_config
 
-from saturnzap.config import data_dir, get_network, load_config, resolve_esplora
+from saturnzap.config import (
+    DEFAULT_LISTEN_PORTS,
+    data_dir,
+    get_network,
+    load_config,
+    resolve_esplora,
+)
 
 _node: Node | None = None
 
@@ -76,7 +82,8 @@ def build_node(mnemonic: str) -> Node:
     builder.set_storage_dir_path(_node_storage())
     builder.set_chain_source_esplora(esplora_url, None)
     builder.set_entropy_bip39_mnemonic(mnemonic, None)
-    builder.set_listening_addresses(["0.0.0.0:9735"])
+    listen_port = DEFAULT_LISTEN_PORTS.get(network_name, 9735)
+    builder.set_listening_addresses([f"0.0.0.0:{listen_port}"])
     builder.set_gossip_source_p2p()
 
     return builder.build()

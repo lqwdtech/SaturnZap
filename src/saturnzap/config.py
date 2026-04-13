@@ -16,6 +16,14 @@ DEFAULT_NETWORK = "signet"
 
 VALID_NETWORKS = ("signet", "testnet", "bitcoin")
 
+# Default Lightning P2P listen port per network
+# (avoids conflicts on multi-network hosts)
+DEFAULT_LISTEN_PORTS: dict[str, int] = {
+    "signet": 9735,
+    "testnet": 9736,
+    "bitcoin": 9737,
+}
+
 # Public signet Esplora endpoint
 DEFAULT_ESPLORA_URL = "https://mempool.space/signet/api"
 
@@ -30,8 +38,8 @@ ESPLORA_FALLBACKS: dict[str, list[str]] = {
         "https://blockstream.info/testnet/api",
     ],
     "bitcoin": [
-        "https://mempool.space/api",
         "https://blockstream.info/api",
+        "https://mempool.space/api",
     ],
 }
 
@@ -121,7 +129,6 @@ def load_config() -> dict[str, Any]:
 def _defaults() -> dict[str, Any]:
     return {
         "network": DEFAULT_NETWORK,
-        "esplora_url": DEFAULT_ESPLORA_URL,
     }
 
 

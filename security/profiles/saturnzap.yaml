@@ -23,3 +23,7 @@ accepted_risks:
     reason: "System pygments==2.17.2 — venv has 2.19.2 (not vulnerable)"
   - cve: "CVE-2026-25645"
     reason: "System requests==2.32.5 — not a SaturnZap dependency"
+  - cve: "CVE-2026-39892"
+    reason: "System cryptography==46.0.5 — venv has 46.0.6 (patched)"
+  - cve: "CVE-2026-40192"
+    reason: "System pillow==12.1.1 — not a SaturnZap dependency"
