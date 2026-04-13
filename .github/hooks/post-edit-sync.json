@@ -1,0 +1,11 @@
+{
+    "hooks": {
+        "PostToolUse": [
+            {
+                "type": "command",
+                "command": "bash .github/hooks/post-edit-sync.sh",
+                "timeout": 30
+            }
+        ]
+    }
+}
