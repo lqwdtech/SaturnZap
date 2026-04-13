@@ -53,7 +53,7 @@ The `sz` command-line tool is free and open source under the MIT license. Anyone
 install it, fork it, audit it, and build on it. There is no licensing fee, no API key
 required to use the software itself, and no telemetry.
 
-### Network Backend — LQWD (Paid Service)
+### LQWD (LSP)
 
 SaturnZap ships pre-configured to use [LQWD Technologies](https://lqwd.ai) as its default
 Lightning Service Provider (LSP). LQWD operates 18 Lightning nodes across 18 countries
