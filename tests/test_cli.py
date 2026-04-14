@@ -229,7 +229,7 @@ def test_send_command(mock_node):
     mock_node.onchain_payment.return_value.send_to_address.return_value = "txid1"
 
     with patch("saturnzap.node._require_node", return_value=mock_node):
-        result = runner.invoke(app, ["send", "tb1qdest", "--amount", "5000"])
+        result = runner.invoke(app, ["--network", "signet", "send", "tb1qdest", "--amount", "5000"])
 
     assert result.exit_code == 0
     data = json.loads(result.output)

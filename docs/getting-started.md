@@ -49,9 +49,9 @@ uv pip install saturnzap \
 
 ## Quick Start
 
-> **Default network:** All examples use signet (the default). To use mainnet, add
-> `--network bitcoin` before the subcommand: `sz --network bitcoin init`.
-> See [Configuration](configuration.md#networks) for details.
+> **Default network:** SaturnZap defaults to **mainnet** (real bitcoin). To use
+> signet for testing, add `--network signet` before the subcommand:
+> `sz --network signet init`. See [Configuration](configuration.md#networks) for details.
 
 ### 1. Set your passphrase
 
@@ -79,7 +79,7 @@ Output:
 ```json
 {
   "status": "ok",
-  "network": "signet",
+  "network": "bitcoin",
   "mnemonic": "abandon ability able about above ... (24 words)",
   "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b...",
   "seed_path": "/home/agent/.local/share/saturnzap/seed.enc",
@@ -101,13 +101,16 @@ sz address
 ```json
 {
   "status": "ok",
-  "address": "tb1q...",
-  "network": "signet"
+  "address": "bc1q...",
+  "network": "bitcoin"
 }
 ```
 
-For signet, use a faucet like [signetfaucet.com](https://signetfaucet.com) or
-[alt.signetfaucet.com](https://alt.signetfaucet.com) to send test coins.
+Send bitcoin to this address to fund your wallet.
+
+> **Testing with signet?** Use `sz --network signet address` and a faucet like
+> [signetfaucet.com](https://signetfaucet.com) or
+> [alt.signetfaucet.com](https://alt.signetfaucet.com) to get free test coins.
 
 Check your balance (wait for chain sync):
 
@@ -146,7 +149,7 @@ sz pay --invoice lnbc1... --max-sats 500
 On mainnet, spending commands require confirmation (or `--yes` to skip):
 
 ```bash
-sz --network bitcoin pay --invoice lnbc1... --yes
+sz pay --invoice lnbc1... --yes
 ```
 
 ### 6. Fetch an L402 resource
@@ -171,7 +174,7 @@ sz status
   "status": "ok",
   "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b...",
   "is_running": true,
-  "network": "signet",
+  "network": "bitcoin",
   "block_height": 297000,
   "block_hash": "00000000..."
 }

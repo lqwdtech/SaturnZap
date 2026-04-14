@@ -11,8 +11,8 @@ from platformdirs import user_config_dir, user_data_dir
 
 APP_NAME = "saturnzap"
 
-# Default network — always signet during development
-DEFAULT_NETWORK = "signet"
+# Default network — mainnet for production use
+DEFAULT_NETWORK = "bitcoin"
 
 VALID_NETWORKS = ("signet", "testnet", "bitcoin")
 
@@ -24,8 +24,8 @@ DEFAULT_LISTEN_PORTS: dict[str, int] = {
     "bitcoin": 9737,
 }
 
-# Public signet Esplora endpoint
-DEFAULT_ESPLORA_URL = "https://mempool.space/signet/api"
+# Public mainnet Esplora endpoint
+DEFAULT_ESPLORA_URL = "https://blockstream.info/api"
 
 # Fallback Esplora endpoints per network.  Probed in order; first healthy wins.
 ESPLORA_FALLBACKS: dict[str, list[str]] = {
@@ -77,7 +77,7 @@ def resolve_esplora(network: str, config_override: str | None = None) -> str:
     if config_override:
         return config_override
 
-    urls = ESPLORA_FALLBACKS.get(network, ESPLORA_FALLBACKS["signet"])
+    urls = ESPLORA_FALLBACKS.get(network, ESPLORA_FALLBACKS["bitcoin"])
     for url in urls:
         try:
             r = httpx.get(f"{url}/blocks/tip/height", timeout=3.0)

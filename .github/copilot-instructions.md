@@ -1,6 +1,6 @@
 # SaturnZap — Copilot Instructions
 
-CLI-first, non-custodial Lightning Network wallet for AI agents. Python 3.12, LDK Node, signet default.
+CLI-first, non-custodial Lightning Network wallet for AI agents. Python 3.12, LDK Node, mainnet default.
 
 ## Build & Test
 

@@ -39,6 +39,7 @@ def test_channel_open_wait_list_close(mock_node):
     peer = "03" + "cd" * 32 + "@1.2.3.4:9735"
     with patch("saturnzap.node._require_node", return_value=mock_node):
         result = runner.invoke(app, [
+            "--network", "signet",
             "channels", "open",
             "--peer", peer,
             "--amount-sats", "100000",

@@ -59,14 +59,14 @@ class TestResolveEsplora:
             result = resolve_esplora("signet")
             assert result == ESPLORA_FALLBACKS["signet"][0]
 
-    def test_unknown_network_falls_back_to_signet(self):
-        """Unknown network name defaults to signet list."""
+    def test_unknown_network_falls_back_to_bitcoin(self):
+        """Unknown network name defaults to bitcoin list."""
         ok = MagicMock()
         ok.status_code = 200
 
         with patch("saturnzap.config.httpx.get", return_value=ok):
             result = resolve_esplora("regtest")
-            assert result == ESPLORA_FALLBACKS["signet"][0]
+            assert result == ESPLORA_FALLBACKS["bitcoin"][0]
 
     def test_bitcoin_network_uses_mainnet_urls(self):
         """The 'bitcoin' key maps to mainnet URLs."""
@@ -103,7 +103,7 @@ class TestLoadConfig:
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
         from saturnzap.config import load_config
         cfg = load_config()
-        assert cfg["network"] == "signet"
+        assert cfg["network"] == "bitcoin"
 
     def test_load_config_from_toml(self, tmp_path, monkeypatch):
         """A valid config.toml should be loaded."""

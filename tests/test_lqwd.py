@@ -142,12 +142,14 @@ def test_list_nodes_uses_mainnet_when_bitcoin():
         cfg._active_network = old
 
 
-def test_list_nodes_uses_signet_by_default():
+def test_list_nodes_uses_mainnet_by_default():
     import saturnzap.config as cfg
     old = cfg._active_network
     try:
         cfg._active_network = None
         nodes = lqwd.list_nodes()
-        assert "placeholder" in nodes[0]["address"]
+        # Mainnet nodes have real addresses (not placeholders)
+        assert len(nodes) > 0
+        assert "placeholder" not in nodes[0]["address"]
     finally:
         cfg._active_network = old

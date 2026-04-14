@@ -16,7 +16,7 @@ For quick command reference, see `skills/saturnzap/SKILL.md`. For JSON output sh
 - Pre-flight balance checks (payments fail with clear errors before attempting)
 - Spending caps (enforce `--max-sats` on every outbound payment)
 - L402 auto-pay (HTTP 402 detection, automatic invoice payment, token caching)
-- Multi-network support (signet for development, mainnet for production)
+- Multi-network support (mainnet default, signet for development)
 - Mainnet safety prompts (confirmation before spending real bitcoin)
 
 **No, if the agent needs:**
@@ -37,7 +37,7 @@ export SZ_PASSPHRASE="agent-passphrase-here"
 # 1. One-command setup (idempotent — safe to re-run)
 sz setup --auto
 
-# 2. Fund the wallet (send signet sats to this address)
+# 2. Fund the wallet (send bitcoin to this address)
 sz address
 
 # 3. Open a channel when funded
@@ -194,5 +194,5 @@ else:
 4. Never emit the mnemonic after initial `sz init`
 5. Use `sz backup` before risky operations
 6. Monitor channel health with `sz liquidity status`
-7. Use `--network signet` (or leave the default) until ready for mainnet
-8. On mainnet, use `--yes` or `SZ_MAINNET_CONFIRM=yes` only in pipelines you trust
+7. Use `--network signet` for development and testing with free test coins
+8. Mainnet is the default — use `--yes` or `SZ_MAINNET_CONFIRM=yes` only in pipelines you trust

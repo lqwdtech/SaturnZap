@@ -1,6 +1,6 @@
 ---
 name: saturnzap
-description: "Non-custodial Lightning wallet for AI agents via `sz` CLI: send/receive sats, pay invoices, auto-pay HTTP 402 (L402), manage channels and liquidity. Use when: (1) paying for API access with Lightning, (2) creating or paying BOLT11 invoices, (3) checking wallet balance or channel health, (4) managing peers and channels. NOT for: on-chain-only Bitcoin transactions, custodial Lightning services, or mainnet (signet only during development)."
+description: "Non-custodial Lightning wallet for AI agents via `sz` CLI: send/receive sats, pay invoices, auto-pay HTTP 402 (L402), manage channels and liquidity. Use when: (1) paying for API access with Lightning, (2) creating or paying BOLT11 invoices, (3) checking wallet balance or channel health, (4) managing peers and channels. NOT for: on-chain-only Bitcoin transactions, custodial Lightning services."
 homepage: https://github.com/ShoneAnstey/SaturnZap
 metadata:
   { "openclaw": { "emoji": "⚡", "os": ["linux"], "requires": { "bins": ["sz"], "env": ["SZ_PASSPHRASE"] }, "primaryEnv": "SZ_PASSPHRASE", "install": [{ "id": "uv", "kind": "uv", "package": "saturnzap", "bins": ["sz"], "label": "Install SaturnZap (uv)" }] } }
@@ -52,7 +52,7 @@ sz pay --invoice "lnbc..." --max-sats 5000
 - On-chain-only Bitcoin transactions (use a Bitcoin wallet CLI)
 - Custodial Lightning services (use hosted APIs like Strike, LNBits)
 - Non-Lightning crypto payments (ETH, stablecoins, etc.)
-- Mainnet Lightning — SaturnZap is signet-only during development (test sats, no real value)
+- Mainnet is the default network. Use `--network signet` for development and testing with free test coins.
 
 ## Setup
 
@@ -258,7 +258,7 @@ When the systemd service is running, the node stays up between CLI calls (no per
 - **Never expose the mnemonic** — the seed phrase from `sz init` must never appear in chat, logs, or tool output after initial display.
 - **Check balance first** — payment commands now check balance automatically and return `INSUFFICIENT_FUNDS` with the current balance. You can also run `sz balance` before large payments.
 - **Parse JSON output** — all `sz` commands output JSON to stdout on success, stderr on error. Use the `status` field to branch logic.
-- **Signet only** — current network is Bitcoin signet (test sats). No real monetary value. Do not promise users real payments.
+- **Mainnet by default** — SaturnZap defaults to Bitcoin mainnet (real sats). Use `--network signet` for testing. Always use `--max-sats` spending caps on mainnet.
 - **Passphrase security** — `SZ_PASSPHRASE` encrypts the seed on disk. Keep it out of chat and logs.
 
 ## Workflow Templates

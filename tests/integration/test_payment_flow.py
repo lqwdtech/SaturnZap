@@ -73,6 +73,7 @@ def test_pay_invoice_then_verify_in_history(mock_node):
         patch("saturnzap.payments.Bolt11Invoice.from_str", return_value=invoice_mock),
     ):
         result = runner.invoke(app, [
+            "--network", "signet",
             "pay", "--invoice", "lnbc500n1...", "--max-sats", "1000",
         ])
     assert result.exit_code == 0

@@ -12,13 +12,13 @@ All responses include a `"status"` field: `"ok"` on success, `"error"` on failur
 ```json
 {
   "status": "ok",
-  "network": "signet",
+  "network": "bitcoin",
   ...fields
 }
 ```
 
 Every success response includes a `"network"` field indicating the active Bitcoin
-network (`"signet"`, `"testnet"`, or `"bitcoin"`).
+network (`"bitcoin"`, `"signet"`, or `"testnet"`).
 
 ### Error
 
@@ -41,7 +41,7 @@ Errors are written to **stderr** and the process exits with a non-zero code.
 ```json
 {
   "status": "ok",
-  "network": "signet",
+  "network": "bitcoin",
   "mnemonic": "abandon ability able about above absent absorb ... (24 words)",
   "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b1fe3cc2550d7437afe5df59e50",
   "seed_path": "/home/user/.local/share/saturnzap/seed.enc",
@@ -54,7 +54,7 @@ Errors are written to **stderr** and the process exits with a non-zero code.
 ```json
 {
   "status": "ok",
-  "network": "signet",
+  "network": "bitcoin",
   "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b1fe3cc2550d7437afe5df59e50",
   "message": "Node started."
 }
@@ -65,7 +65,7 @@ Errors are written to **stderr** and the process exits with a non-zero code.
 ```json
 {
   "status": "ok",
-  "network": "signet",
+  "network": "bitcoin",
   "message": "Node stopped."
 }
 ```
@@ -77,7 +77,7 @@ Errors are written to **stderr** and the process exits with a non-zero code.
   "status": "ok",
   "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b...",
   "is_running": true,
-  "network": "signet",
+  "network": "bitcoin",
   "block_height": 297000,
   "block_hash": "0000014b62b53d2550c310208af9d792ab7a4a...",
   "latest_wallet_sync": 1743260000,
@@ -94,8 +94,8 @@ Errors are written to **stderr** and the process exits with a non-zero code.
 ```json
 {
   "status": "ok",
-  "address": "tb1qxyz...",
-  "network": "signet"
+  "address": "bc1qxyz...",
+  "network": "bitcoin"
 }
 ```
 

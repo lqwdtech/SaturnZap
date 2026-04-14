@@ -9,9 +9,10 @@ description: "Use when writing, editing, or debugging SaturnZap tests. Covers fi
 
 `conftest.py` provides three autouse fixtures that reset state between tests:
 
-- `_clean_data_dir` — redirects `XDG_DATA_HOME` to `tmp_path` (no real seed touched)
-- `_reset_pretty` — resets `output._pretty` to `False`
-- `_reset_node` — resets `node._node` and `node._ipc_mode` singletons
+- `_reset_active_network` (conftest.py) — resets `config._active_network` to `None`
+- `_clean_data_dir` (per-file) — redirects `XDG_DATA_HOME` to `tmp_path` (no real seed touched)
+- `_reset_pretty` (per-file) — resets `output._pretty` to `False`
+- `_reset_node` (per-file) — resets `node._node` and `node._ipc_mode` singletons
 
 New test files automatically pick these up. If a test needs the real data dir, override `_clean_data_dir` locally.
 

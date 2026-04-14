@@ -246,7 +246,7 @@ All commands output JSON to stdout. Errors exit with code 1, written to stderr.
 **Global options:**
 
 ```bash
-sz --network signet|testnet|bitcoin <command>   # Select Bitcoin network (default: signet)
+sz --network bitcoin|signet|testnet <command>   # Select Bitcoin network (default: bitcoin)
 sz --pretty <command>                             # Pretty-print JSON output
 ```
 
@@ -535,7 +535,7 @@ enforce a global per-request spending cap on L402 payments.
 | **OS** | Ubuntu 24.04 (DigitalOcean Droplet, 2GB RAM / 2 vCPU) |
 | **Editor** | VS Code via Remote SSH |
 | **Python** | 3.12 |
-| **Network** | Bitcoin signet (default) / testnet / mainnet — selectable via `--network` |
+| **Network** | Bitcoin mainnet (default) / signet / testnet — selectable via `--network` |
 | **Chain source** | Esplora REST API with automatic fallback chain |
 | **LQWD nodes** | 18 regions, pubkeys embedded in `src/saturnzap/lqwd.py` |
 
@@ -575,8 +575,8 @@ uv pip install saturnzap --find-links https://github.com/ShoneAnstey/SaturnZap/r
 
 `sz init`, `sz start`, `sz stop`, `sz status`
 
-BIP39 seed generation, encrypted storage, LDK Node startup, Esplora chain sync on
-signet, auto-peer with nearest LQWD signet node, JSON output infrastructure.
+BIP39 seed generation, encrypted storage, LDK Node startup, Esplora chain sync,
+auto-peer with nearest LQWD node, JSON output infrastructure.
 
 ### Phase 2 — Channel Management ✅
 

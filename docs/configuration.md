@@ -22,12 +22,15 @@ network = "signet"
 esplora_url = "https://mempool.space/signet/api"
 ```
 
+The `network` field defaults to `"bitcoin"` (mainnet) if omitted. Set it to `"signet"`
+for development and testing.
+
 ### Fields
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `network` | string | `"signet"` | Bitcoin network: `signet`, `testnet`, or `bitcoin` |
-| `esplora_url` | string | `"https://mempool.space/signet/api"` | Esplora REST API endpoint. Overrides the fallback chain. |
+| `network` | string | `"bitcoin"` | Bitcoin network: `bitcoin`, `signet`, or `testnet` |
+| `esplora_url` | string | `"https://blockstream.info/api"` | Esplora REST API endpoint. Overrides the fallback chain. |
 
 ### Liquidity Config
 
@@ -83,12 +86,12 @@ directory with its own seed, channels, and state:
 
 ```
 ~/.local/share/saturnzap/
-├── signet/         # Default development wallet
+├── signet/         # Signet wallet (use --network signet)
 │   ├── seed.enc
 │   ├── seed.salt
 │   ├── ldk/
 │   └── node.active
-├── bitcoin/        # Mainnet wallet (separate keys, separate channels)
+├── bitcoin/        # Mainnet wallet (default)
 │   ├── seed.enc
 │   ├── seed.salt
 │   ├── ldk/
@@ -161,9 +164,9 @@ SaturnZap supports three Bitcoin networks:
 
 | Network | Use Case | Config Value |
 |---|---|---|
-| **Signet** | Development and testing (default) | `"signet"` |
+| **Bitcoin** | Production — mainnet (default) | `"bitcoin"` |
+| **Signet** | Development and testing | `"signet"` |
 | **Testnet** | Integration testing | `"testnet"` |
-| **Bitcoin** | Production (mainnet) | `"bitcoin"` |
 
 ### Selecting a Network
 
@@ -171,7 +174,7 @@ Three ways to select a network (highest priority first):
 
 1. **CLI flag:** `sz --network bitcoin status`
 2. **Config file:** `network = "bitcoin"` in `config.toml`
-3. **Default:** `"signet"` if nothing is set
+3. **Default:** `"bitcoin"` (mainnet) if nothing is set
 
 ### Mainnet Safety
 
@@ -187,8 +190,8 @@ To skip the prompt (for automation):
 - Pass `--yes` / `-y` to the command
 - Set `SZ_MAINNET_CONFIRM=yes` in the environment
 
-> **Warning:** The default network is `"signet"`. Do not use `"bitcoin"` until you
-> have tested your workflow on signet.
+> **Note:** The default network is `"bitcoin"` (mainnet). Use `--network signet`
+> for development and testing with free test coins.
 
 ---
 
