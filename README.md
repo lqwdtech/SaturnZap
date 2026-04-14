@@ -13,8 +13,6 @@
 
 <p align="center">
   <a href="https://github.com/ShoneAnstey/SaturnZap/actions/workflows/ci.yml"><img src="https://github.com/ShoneAnstey/SaturnZap/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://pypi.org/project/saturnzap/"><img src="https://img.shields.io/pypi/v/saturnzap" alt="PyPI"></a>
-  <a href="https://github.com/ShoneAnstey/SaturnZap/blob/main/LICENSE"><img src="https://img.shields.io/github/license/ShoneAnstey/SaturnZap" alt="License"></a>
 </p>
 
 ```bash
