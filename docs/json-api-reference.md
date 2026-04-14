@@ -85,6 +85,23 @@ Errors are written to **stderr** and the process exits with a non-zero code.
 }
 ```
 
+### `sz connect-info`
+
+```json
+{
+  "status": "ok",
+  "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b...",
+  "host": "137.184.229.83",
+  "port": 9737,
+  "uri": "0234b0c302e8c201e0ffd31580bf9106b625505b...@137.184.229.83:9737",
+  "network": "bitcoin"
+}
+```
+
+The `uri` field is the full connection string another wallet needs to connect or open
+a channel to your node. Share this with peers or LSPs. The `host` field is auto-detected
+via an external IP service; it is `null` if detection fails.
+
 ---
 
 ## Wallet Commands

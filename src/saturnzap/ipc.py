@@ -327,6 +327,7 @@ def build_dispatcher() -> dict[str, Callable[..., Any]]:
         # Node lifecycle
         "get_status": node.get_status,
         "get_balance": node.get_balance,
+        "get_connect_info": node.get_connect_info,
         "new_onchain_address": node.new_onchain_address,
         "send_onchain": node.send_onchain,
         "shutdown": _shutdown_handler,

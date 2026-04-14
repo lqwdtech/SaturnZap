@@ -148,6 +148,14 @@ def get_status() -> dict[str, Any]:
 
 
 @mcp.tool()
+def get_connect_info() -> dict[str, Any]:
+    """Return node connection URI (pubkey@host:port) for sharing."""
+    from saturnzap import node
+
+    return node.get_connect_info()
+
+
+@mcp.tool()
 def stop_node() -> dict[str, str]:
     """Stop the Lightning node gracefully."""
     from saturnzap import node

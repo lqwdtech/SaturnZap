@@ -327,6 +327,15 @@ def status() -> None:
     output.ok(**info)
 
 
+@app.command(name="connect-info")
+def connect_info() -> None:
+    """Show this node's connection URI (pubkey@host:port) for sharing."""
+    from saturnzap import node as node_mod
+
+    info = node_mod.get_connect_info()
+    output.ok(**info)
+
+
 @app.command()
 def address() -> None:
     """Generate a new on-chain receive address (for faucet deposits)."""

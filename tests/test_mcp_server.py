@@ -30,7 +30,7 @@ def test_server_name():
 
 
 # ---------------------------------------------------------------------------
-# Tool registration — verify all 22 tools are present
+# Tool registration — verify all 23 tools are present
 # ---------------------------------------------------------------------------
 
 EXPECTED_TOOLS = [
@@ -38,6 +38,7 @@ EXPECTED_TOOLS = [
     "init_wallet",
     "setup_wallet",
     "get_status",
+    "get_connect_info",
     "stop_node",
     "new_onchain_address",
     "get_balance",

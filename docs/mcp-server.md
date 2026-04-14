@@ -117,6 +117,7 @@ serve()  # blocks, communicates over stdio
 | `is_initialized` | Check if the wallet has been initialized. |
 | `init_wallet` | Generate a new BIP39 seed and start the node. Call once only. |
 | `get_status` | Node pubkey, sync state, block height, timestamps. |
+| `get_connect_info` | Connection URI (`pubkey@host:port`) for sharing with other wallets. |
 | `stop_node` | Stop the Lightning node gracefully. |
 
 ### Wallet

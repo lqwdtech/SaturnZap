@@ -1,7 +1,8 @@
-"""Live signet tests — connectivity, status, and basic operations.
+"""Live tests — connectivity, status, and basic operations.
 
 Run with: pytest tests/live/ -m live -v
 Requires: SSH access to droplets, SZ_PASSPHRASE set on droplets.
+Works on any network (signet, bitcoin, testnet).
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ def test_main_droplet_status(main_droplet):
     data = main_droplet.sz("status")
     assert data["status"] == "ok"
     assert data["is_running"] is True
-    assert data["network"] == "signet"
+    assert data["network"] in ("bitcoin", "signet", "testnet")
     assert data["block_height"] > 0
     assert len(data["pubkey"]) == 66  # compressed pubkey hex
 
@@ -28,7 +29,7 @@ def test_peer_droplet_status(test_peer_droplet):
     data = test_peer_droplet.sz("status")
     assert data["status"] == "ok"
     assert data["is_running"] is True
-    assert data["network"] == "signet"
+    assert data["network"] in ("bitcoin", "signet", "testnet")
     assert data["block_height"] > 0
 
 
@@ -70,8 +71,9 @@ def test_main_droplet_address(main_droplet):
     """Generate a new address on the main droplet."""
     data = main_droplet.sz("address")
     assert data["status"] == "ok"
-    assert data["address"].startswith("tb1")  # signet bech32
-    assert data["network"] == "signet"
+    # bech32 prefix depends on network: bc1 (mainnet), tb1 (signet/testnet)
+    assert data["address"].startswith(("bc1", "tb1"))
+    assert data["network"] in ("bitcoin", "signet", "testnet")
 
 
 @pytest.mark.live

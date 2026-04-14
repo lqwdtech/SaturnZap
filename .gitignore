@@ -12,6 +12,7 @@ CLAUDE.md
 # Local-only directories
 plans/
 memory/
+notes/
 docs/notes/
 
 # Security scanner reports (generated, not committed)

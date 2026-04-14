@@ -158,6 +158,47 @@ def get_status() -> dict:
     }
 
 
+def get_connect_info() -> dict:
+    """Return the node's connection URI (pubkey@host:port) for sharing."""
+    if _use_ipc():
+        return _ipc("get_connect_info")  # type: ignore[return-value]
+    node = _require_node()
+    pubkey = node.node_id()
+    network_name = get_network()
+    port = DEFAULT_LISTEN_PORTS.get(network_name, 9735)
+
+    # Detect external IP via a lightweight HTTP service
+    host = _detect_external_ip()
+
+    uri = f"{pubkey}@{host}:{port}" if host else None
+    return {
+        "pubkey": pubkey,
+        "host": host,
+        "port": port,
+        "uri": uri,
+        "network": network_name,
+    }
+
+
+def _detect_external_ip() -> str | None:
+    """Best-effort external IP detection. Returns None on failure."""
+    import httpx
+
+    services = [
+        "https://api.ipify.org",
+        "https://ifconfig.me/ip",
+        "https://icanhazip.com",
+    ]
+    for url in services:
+        try:
+            resp = httpx.get(url, timeout=3.0)
+            if resp.status_code == 200:
+                return resp.text.strip()
+        except (httpx.HTTPError, OSError):
+            continue
+    return None
+
+
 # ── Helpers ──────────────────────────────────────────────────────
 
 

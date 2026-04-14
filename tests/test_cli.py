@@ -53,6 +53,7 @@ def test_help_shows_commands():
     assert "start" in result.output
     assert "stop" in result.output
     assert "status" in result.output
+    assert "connect-info" in result.output
     assert "address" in result.output
     assert "balance" in result.output
     assert "peers" in result.output
@@ -332,6 +333,24 @@ def test_status_returns_json(mock_node):
     assert data["status"] == "ok"
     assert "pubkey" in data
     assert "peer_count" in data
+
+
+# ── connect-info functional ──────────────────────────────────────
+
+
+def test_connect_info_returns_json(mock_node):
+    with (
+        patch("saturnzap.node._require_node", return_value=mock_node),
+        patch("saturnzap.node._detect_external_ip", return_value="1.2.3.4"),
+    ):
+        result = runner.invoke(app, ["connect-info"])
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["status"] == "ok"
+    assert data["pubkey"] == "02abc"
+    assert data["host"] == "1.2.3.4"
+    assert "uri" in data
 
 
 # ── balance functional ───────────────────────────────────────────

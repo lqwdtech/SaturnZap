@@ -108,6 +108,9 @@ sz stop --close-all
 
 # Check node status (pubkey, sync state, peer/channel counts)
 sz status
+
+# Get connection URI to share with other wallets (pubkey@host:port)
+sz connect-info
 ```
 
 The node auto-starts when needed. Most commands call `sz start` internally if the node isn't running.

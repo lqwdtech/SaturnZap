@@ -90,8 +90,8 @@ the cached instance.
 When a daemon is running, `_use_ipc()` auto-detects the IPC socket and routes all
 public function calls through it. The local LDK node is never touched in IPC mode.
 
-Functions: `build_node()`, `start()`, `stop()`, `get_status()`, `_require_node()`,
-`new_onchain_address()`, `get_balance()`, peer management, channel management.
+Functions: `build_node()`, `start()`, `stop()`, `get_status()`, `get_connect_info()`,
+`_require_node()`, `new_onchain_address()`, `get_balance()`, peer management, channel management.
 
 ### `ipc.py` — IPC Layer
 

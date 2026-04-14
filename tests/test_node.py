@@ -176,6 +176,41 @@ def test_get_status_sync_lag_none_when_no_timestamp(mock_ldk_node):
     assert result["sync_lag_seconds"] is None
 
 
+# ── get_connect_info ─────────────────────────────────────────────
+
+
+def test_get_connect_info_returns_uri(mock_ldk_node):
+    node._node = mock_ldk_node
+
+    with (
+        patch("saturnzap.node._require_node", return_value=mock_ldk_node),
+        patch("saturnzap.node._detect_external_ip", return_value="1.2.3.4"),
+        patch("saturnzap.node.get_network", return_value="signet"),
+    ):
+        result = node.get_connect_info()
+
+    assert result["pubkey"] == "02abc123"
+    assert result["host"] == "1.2.3.4"
+    assert result["port"] == 9735
+    assert result["uri"] == "02abc123@1.2.3.4:9735"
+    assert result["network"] == "signet"
+
+
+def test_get_connect_info_ip_detection_fails(mock_ldk_node):
+    node._node = mock_ldk_node
+
+    with (
+        patch("saturnzap.node._require_node", return_value=mock_ldk_node),
+        patch("saturnzap.node._detect_external_ip", return_value=None),
+        patch("saturnzap.node.get_network", return_value="signet"),
+    ):
+        result = node.get_connect_info()
+
+    assert result["pubkey"] == "02abc123"
+    assert result["host"] is None
+    assert result["uri"] is None
+
+
 # ── new_onchain_address ──────────────────────────────────────────
 
 

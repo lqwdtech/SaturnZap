@@ -532,7 +532,8 @@ def test_build_dispatcher_returns_all_methods():
 
     d = build_dispatcher()
     expected = {
-        "get_status", "get_balance", "new_onchain_address", "send_onchain",
+        "get_status", "get_balance", "get_connect_info",
+        "new_onchain_address", "send_onchain",
         "shutdown",
         "list_peers", "connect_peer", "disconnect_peer",
         "list_channels", "open_channel", "close_channel",
