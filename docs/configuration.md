@@ -56,6 +56,8 @@ auto_open_enabled = false
 | Variable | Purpose | Default |
 |---|---|---|
 | `SZ_PASSPHRASE` | Decrypt the seed file. Required for all node operations. | — (prompts if unset) |
+| `SZ_NETWORK` | Override the Bitcoin network (`bitcoin`, `signet`, `testnet`). Takes precedence over `config.toml` but not the CLI `--network` flag. | — (uses config or `bitcoin`) |
+| `SZ_ESPLORA_URL` | Override the Esplora endpoint. Takes precedence over fallback probing but not `esplora_url` in `config.toml`. | — (auto-probe) |
 | `SZ_PRETTY` | Set to `1` for pretty-printed JSON output. | `0` |
 | `SZ_REGION` | Force a specific LQWD region (e.g. `JP`, `CA`, `US`). | Auto-detect from timezone |
 | `SZ_MCP_MAX_SPEND_SATS` | Global per-request spending cap for MCP `l402_fetch` tool. | No limit |

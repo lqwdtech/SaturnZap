@@ -149,7 +149,10 @@
 - Wheel is vendored locally (not downloaded from PyPI at install time)
 - Git history tracks changes to the wheel file
 - The wheel is built from the official LDK Node Python bindings repo
+- SHA256 checksum file (`vendor/ldk_node.sha256`) verified in CI on every push
+- CI step fails the build if the wheel hash doesn't match the pinned checksum
 
-**Gap:** No checksum verification at install time. No signature verification. Anyone with repo write access could swap the wheel.
+**Gap:** No signature verification. Anyone with repo write access could swap both the
+wheel and the checksum file simultaneously (though CI history and Git diffs would reveal it).
 
-**Mitigation:** Add SHA256 checksum verification in pyproject.toml or a verification script. Pin the expected hash in CI.
+**Mitigation:** Pin the expected hash in CI (done). Consider GPG signing the wheel in a future version.

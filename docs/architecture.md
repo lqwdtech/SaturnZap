@@ -31,7 +31,7 @@ interface, the wallet core, and the Lightning node runtime.
 │  │  IPC Server   │  │           Wallet Core                 │    │
 │  │  (asyncio     │  │                                       │    │
 │  │   UDS server) │──│  node.py     — LDK Node lifecycle     │    │
-│  │  22 methods   │  │  payments.py — BOLT11 send/receive    │    │
+│  │  23 methods   │  │  payments.py — BOLT11 send/receive    │    │
 │  └──────────────┘  │  l402.py     — L402 HTTP interceptor   │    │
 │                    │  liquidity.py — channel health          │    │
 │                    │  keystore.py  — BIP39 seed encryption   │    │
@@ -99,8 +99,8 @@ Unix Domain Socket IPC layer. The daemon hosts an asyncio UDS server on
 `~/.local/share/saturnzap/<network>/sz.sock`. CLI commands and the MCP server
 connect as thin clients.
 
-Protocol: newline-delimited JSON. 22 methods covering node status, payments,
-channels, liquidity, and L402. Socket permissions: `0600` (owner only).
+Protocol: newline-delimited JSON. 23 methods covering node lifecycle, payments,
+channels, liquidity, L402, and daemon shutdown. Socket permissions: `0600` (owner only).
 Thread-safe: a `threading.Lock` serializes LDK calls on the server side.
 
 Classes: `IPCServer`, `IPCError`, `IPCConnectionError`.
@@ -227,7 +227,7 @@ env var) support spending caps. For autonomous agents, this is a critical safety
 | BIP39 | mnemonic | ≥0.21 | Seed phrase generation |
 | Env | python-dotenv | ≥1.2 | `.env` file loading |
 | Build | hatchling | — | PEP 517 build backend |
-| Testing | pytest | ≥8.0 | 324 tests |
+| Testing | pytest | ≥8.0 | 363 tests |
 | Linting | ruff | ≥0.9 | Lint + format |
 | Security | bandit + pip-audit + detect-secrets | — | Pre-commit security scan |
 
@@ -257,18 +257,22 @@ Triggered on version tags (`v*`):
 
 ## Testing
 
-95 tests across 9 test files:
+363 tests across 13 test files:
 
 | File | Tests | Covers |
 |---|---|---|
 | `test_cli.py` | CLI smoke tests | Help output, no-seed errors, subcommand registration |
 | `test_keystore.py` | Seed encryption | Generate, encrypt, decrypt, wrong passphrase, permissions |
-| `test_output.py` | JSON output | ok/error format, pretty mode, TTY detection |
+| `test_output.py` | JSON output | ok/error format, pretty mode, TTY detection, CommandError |
 | `test_lqwd.py` | Node directory | Region filter, timezone selection, SZ_REGION override |
-| `test_payments.py` | Payment helpers | Kind/direction/status string conversion |
-| `test_l402.py` | L402 parsing | LSAT/L402 header formats, token caching |
+| `test_payments.py` | Payment helpers | Kind/direction/status string conversion, preimage extraction |
+| `test_l402.py` | L402 parsing | LSAT/L402 header formats, token caching, preimage auth |
 | `test_liquidity.py` | Health scoring | Score calculation, labels, recommendations |
-| `test_config.py` | Esplora fallback | Config override, probe logic, timeout, all-fail |
+| `test_config.py` | Config & env vars | Config override, probe logic, SZ_NETWORK/SZ_ESPLORA_URL |
 | `test_mcp_server.py` | MCP server | Tool registration, tool count, function tests |
+| `test_ipc.py` | IPC layer | Echo, errors, CommandError fidelity, shutdown, concurrency |
+| `test_node.py` | Node lifecycle | Build, start, stop, IPC routing |
+| `test_backup.py` | Backup/restore | Export, import, round-trip |
+| `test_service.py` | Systemd service | Unit file generation, install, uninstall |
 
 All tests run without a real LDK node — they mock or test pure logic.

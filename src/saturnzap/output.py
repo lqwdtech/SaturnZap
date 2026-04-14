@@ -13,6 +13,19 @@ from typing import Any
 _pretty: bool = False
 
 
+class CommandError(SystemExit):
+    """Structured error raised by ``error()``.
+
+    Subclasses ``SystemExit`` so the CLI exits as before, but the IPC handler
+    can catch this more specific type and forward the real code/message.
+    """
+
+    def __init__(self, code: str, message: str, exit_code: int = 1) -> None:
+        super().__init__(exit_code)
+        self.error_code = code
+        self.error_message = message
+
+
 def set_pretty(value: bool) -> None:
     """Enable or disable pretty-printed JSON output."""
     global _pretty  # noqa: PLW0603
@@ -43,4 +56,4 @@ def error(code: str, message: str, *, exit_code: int = 1) -> None:
     payload = {"status": "error", "code": code, "message": message}
     sys.stderr.write(_dump(payload) + "\n")
     sys.stderr.flush()
-    raise SystemExit(exit_code)
+    raise CommandError(code, message, exit_code)

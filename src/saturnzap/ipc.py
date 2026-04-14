@@ -26,11 +26,16 @@ from pathlib import Path
 from typing import Any
 
 from saturnzap.config import data_dir
+from saturnzap.output import CommandError
 
 # Maximum message size (1 MB) — guards against malformed input.
 MAX_MSG_BYTES = 1_048_576
 
 SOCKET_NAME = "sz.sock"
+
+# Module-level shutdown event — set by the ``shutdown`` IPC method so
+# the daemon's main loop knows it's time to exit.
+_shutdown_event: threading.Event = threading.Event()
 
 
 def socket_path() -> Path:
@@ -171,8 +176,15 @@ class IPCServer:
                         None, self._dispatch_locked, handler, params,
                     )
                     writer.write(_encode({"result": result, "id": req_id}))
+                except CommandError as exc:
+                    # output.error() raises CommandError — forward real code
+                    writer.write(
+                        _encode({"error": {"code": exc.error_code,
+                                           "message": exc.error_message},
+                                 "id": req_id}),
+                    )
                 except SystemExit:
-                    # output.error() raises SystemExit — catch and extract
+                    # Fallback for any bare SystemExit not from output.error()
                     writer.write(
                         _encode({"error": {"code": "COMMAND_ERROR",
                                            "message": "Command failed"},
@@ -298,6 +310,12 @@ def daemon_is_running() -> bool:
 # ── Dispatcher builder ───────────────────────────────────────────
 
 
+def _shutdown_handler() -> dict:
+    """Signal the daemon to shut down gracefully."""
+    _shutdown_event.set()
+    return {"message": "Shutdown signal sent."}
+
+
 def build_dispatcher() -> dict[str, Callable[..., Any]]:
     """Build the method → handler mapping for the IPC server.
 
@@ -311,6 +329,7 @@ def build_dispatcher() -> dict[str, Callable[..., Any]]:
         "get_balance": node.get_balance,
         "new_onchain_address": node.new_onchain_address,
         "send_onchain": node.send_onchain,
+        "shutdown": _shutdown_handler,
         # Peers
         "list_peers": node.list_peers,
         "connect_peer": node.connect_peer,

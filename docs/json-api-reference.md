@@ -288,9 +288,13 @@ Variable-amount invoice (`--amount-sats 0`):
   "payment_id": "pay_abc123...",
   "payment_hash": "abc123...",
   "amount_msat": 1000000,
+  "preimage": "deadbeef01234567...",
   "message": "Payment sent."
 }
 ```
+
+The `preimage` field is the proof-of-payment. It is `null` if LDK has not yet
+resolved the preimage (rare — typically available immediately after payment).
 
 ### `sz keysend --pubkey <pubkey> --amount-sats 100`
 

@@ -24,7 +24,7 @@ All source lives in `src/saturnzap/`. Key modules:
 | `output.py` | `ok(**fields)` → stdout JSON, `error(code, msg)` → stderr JSON + exit |
 | `config.py` | TOML config + Esplora fallback resolver (3s probe timeout) |
 | `keystore.py` | BIP39 seed + Fernet encryption (PBKDF2, 600K iterations, 16-byte salt) |
-| `ipc.py` | Unix Domain Socket daemon. Newline-delimited JSON, 22 methods, `threading.Lock` |
+| `ipc.py` | Unix Domain Socket daemon. Newline-delimited JSON, 23 methods, `threading.Lock` |
 | `payments.py` | BOLT11 invoices, keysend, spending caps, history |
 | `l402.py` | HTTP 402 interceptor, token cache (SHA256-hashed URL) |
 | `liquidity.py` | Channel health scoring (0–100), recommendations |

@@ -104,3 +104,28 @@ def test_ok_empty_payload(capsys):
     data = json.loads(captured.out)
     assert data["status"] == "ok"
     assert "network" in data
+
+
+# ── CommandError ─────────────────────────────────────────────────
+
+
+def test_error_raises_command_error(capsys):
+    """error() should raise CommandError (a SystemExit subclass)."""
+    with pytest.raises(output.CommandError) as exc_info:
+        output.error("MY_CODE", "my message")
+    assert exc_info.value.error_code == "MY_CODE"
+    assert exc_info.value.error_message == "my message"
+    assert exc_info.value.code == 1  # SystemExit.code
+
+
+def test_command_error_is_system_exit():
+    """CommandError should be catchable as SystemExit."""
+    with pytest.raises(SystemExit):
+        output.error("CODE", "msg")
+
+
+def test_command_error_custom_exit_code(capsys):
+    with pytest.raises(output.CommandError) as exc_info:
+        output.error("CODE", "msg", exit_code=42)
+    assert exc_info.value.code == 42
+    assert exc_info.value.error_code == "CODE"

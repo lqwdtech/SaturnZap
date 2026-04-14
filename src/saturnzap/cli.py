@@ -242,7 +242,12 @@ def start(
 
     if daemon:
         # Start IPC server so CLI commands can talk to this daemon
-        from saturnzap.ipc import IPCServer, build_dispatcher, socket_path
+        from saturnzap.ipc import (
+            IPCServer,
+            _shutdown_event,
+            build_dispatcher,
+            socket_path,
+        )
 
         dispatcher = build_dispatcher()
         ipc_server = IPCServer(socket_path(), dispatcher)
@@ -258,7 +263,7 @@ def start(
         signal.signal(signal.SIGTERM, _handle_signal)
         signal.signal(signal.SIGINT, _handle_signal)
 
-        while not stop_event:
+        while not stop_event and not _shutdown_event.is_set():
             time.sleep(1)
 
         ipc_server.stop()

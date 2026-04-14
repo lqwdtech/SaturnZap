@@ -105,9 +105,11 @@ def start(mnemonic: str) -> Node:
 
 def stop() -> None:
     """Stop the running node and clear the flag."""
-    global _node
-    # In IPC mode there's no local node to stop.
+    global _node, _ipc_mode  # noqa: PLW0603
+    # In IPC mode, tell the daemon to shut down.
     if _ipc_mode:
+        _ipc("shutdown")
+        _ipc_mode = False
         return
     flag = data_dir() / _RUNNING_FLAG
     if _node is not None:

@@ -154,6 +154,13 @@ def test_pay_invoice_success(mock_node):
     mock_inv.payment_hash.return_value = "payhash"
     mock_node.bolt11_payment.return_value.send.return_value = "payid123"
 
+    # Mock list_payments so _extract_preimage finds the payment
+    paid = SimpleNamespace(
+        id="payid123",
+        kind=SimpleNamespace(preimage="deadbeef01234567"),
+    )
+    mock_node.list_payments.return_value = [paid]
+
     with (
         patch("saturnzap.payments._require_node", return_value=mock_node),
         patch("ldk_node.Bolt11Invoice.from_str", return_value=mock_inv),
@@ -163,6 +170,7 @@ def test_pay_invoice_success(mock_node):
     assert result["payment_id"] == "payid123"
     assert result["payment_hash"] == "payhash"
     assert result["amount_msat"] == 10_000_000
+    assert result["preimage"] == "deadbeef01234567"
 
 
 def test_pay_invoice_exceeds_max_sats(mock_node):
@@ -196,6 +204,7 @@ def test_pay_invoice_no_amount_skips_balance_check(mock_node):
     mock_inv.amount_milli_satoshis.return_value = None
     mock_inv.payment_hash.return_value = "hash"
     mock_node.bolt11_payment.return_value.send.return_value = "pid"
+    mock_node.list_payments.return_value = []
 
     with (
         patch("saturnzap.payments._require_node", return_value=mock_node),
@@ -205,6 +214,53 @@ def test_pay_invoice_no_amount_skips_balance_check(mock_node):
 
     assert result["payment_id"] == "pid"
     assert result["amount_msat"] is None
+    assert result["preimage"] is None
+
+
+# ── _extract_preimage ────────────────────────────────────────────
+
+
+def test_extract_preimage_found():
+    """Preimage should be extracted from a matching payment."""
+    node = MagicMock()
+    paid = SimpleNamespace(
+        id="pid_abc",
+        kind=SimpleNamespace(preimage="cafebabe12345678"),
+    )
+    node.list_payments.return_value = [paid]
+
+    result = payments._extract_preimage(node, "pid_abc")
+    assert result == "cafebabe12345678"
+
+
+def test_extract_preimage_none_when_missing():
+    """If no matching payment found, return None (after brief polling)."""
+    node = MagicMock()
+    node.list_payments.return_value = []
+
+    with (
+        patch("saturnzap.payments._PREIMAGE_POLL_ATTEMPTS", 1),
+        patch("saturnzap.payments._PREIMAGE_POLL_INTERVAL", 0),
+    ):
+        result = payments._extract_preimage(node, "nonexistent")
+    assert result is None
+
+
+def test_extract_preimage_none_when_preimage_not_set():
+    """If payment exists but preimage is None, return None."""
+    node = MagicMock()
+    paid = SimpleNamespace(
+        id="pid_abc",
+        kind=SimpleNamespace(preimage=None),
+    )
+    node.list_payments.return_value = [paid]
+
+    with (
+        patch("saturnzap.payments._PREIMAGE_POLL_ATTEMPTS", 1),
+        patch("saturnzap.payments._PREIMAGE_POLL_INTERVAL", 0),
+    ):
+        result = payments._extract_preimage(node, "pid_abc")
+    assert result is None
 
 
 # ── keysend ──────────────────────────────────────────────────────

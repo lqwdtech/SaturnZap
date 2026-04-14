@@ -110,7 +110,7 @@ def test_daemon_is_running_with_live_socket(tmp_path, monkeypatch):
 def ipc_server_and_path(tmp_path, monkeypatch):
     """Start a real IPC server with mock handlers, yield (server, path)."""
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
-    from saturnzap.ipc import IPCServer, socket_path
+    from saturnzap.ipc import IPCServer, _shutdown_handler, socket_path
 
     sp = socket_path()
     sp.parent.mkdir(parents=True, exist_ok=True)
@@ -121,7 +121,9 @@ def ipc_server_and_path(tmp_path, monkeypatch):
         "greet": lambda name="world": {"msg": f"hello {name}"},
         "fail": _raiser,
         "exit": _exit_raiser,
+        "command_err": _command_error_raiser,
         "slow": lambda: _slow_handler(),
+        "shutdown": _shutdown_handler,
     }
 
     server = IPCServer(sp, dispatcher)
@@ -142,6 +144,11 @@ def _raiser(**kw):
 
 def _exit_raiser(**kw):
     raise SystemExit(1)
+
+
+def _command_error_raiser(**kw):
+    from saturnzap.output import CommandError
+    raise CommandError("INSUFFICIENT_FUNDS", "Not enough sats")
 
 
 def _slow_handler():
@@ -198,6 +205,16 @@ def test_ipc_call_system_exit(ipc_server_and_path):
     with pytest.raises(IPCError) as exc_info:
         ipc_call("exit")
     assert exc_info.value.code == "COMMAND_ERROR"
+
+
+def test_ipc_call_command_error_preserves_code(ipc_server_and_path):
+    """CommandError should forward the real error code, not generic COMMAND_ERROR."""
+    from saturnzap.ipc import IPCError, ipc_call
+
+    with pytest.raises(IPCError) as exc_info:
+        ipc_call("command_err")
+    assert exc_info.value.code == "INSUFFICIENT_FUNDS"
+    assert "Not enough sats" in str(exc_info.value)
 
 
 def test_ipc_call_no_socket(tmp_path, monkeypatch):
@@ -409,16 +426,19 @@ def test_list_channels_routes_via_ipc(tmp_path, monkeypatch):
         node_mod._ipc_mode = False
 
 
-def test_stop_noop_in_ipc_mode(tmp_path, monkeypatch):
-    """stop() should be a no-op when in IPC mode."""
+def test_stop_routes_via_ipc(tmp_path, monkeypatch):
+    """stop() should send IPC shutdown when in IPC mode."""
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
     import saturnzap.node as node_mod
 
     node_mod._node = None
     node_mod._ipc_mode = True
     try:
-        # Should not raise or try to stop anything
-        node_mod.stop()
+        mock_ret = {"message": "Shutdown signal sent."}
+        with patch("saturnzap.ipc.ipc_call", return_value=mock_ret) as mock:
+            node_mod.stop()
+        mock.assert_called_once_with("shutdown", None)
+        assert node_mod._ipc_mode is False
     finally:
         node_mod._ipc_mode = False
 
@@ -513,6 +533,7 @@ def test_build_dispatcher_returns_all_methods():
     d = build_dispatcher()
     expected = {
         "get_status", "get_balance", "new_onchain_address", "send_onchain",
+        "shutdown",
         "list_peers", "connect_peer", "disconnect_peer",
         "list_channels", "open_channel", "close_channel",
         "force_close_channel", "wait_channel_ready",
@@ -542,3 +563,27 @@ def test_ipc_connection_error():
 
     err = IPCConnectionError("socket not found")
     assert "socket not found" in str(err)
+
+
+# ── Shutdown handler ─────────────────────────────────────────────
+
+
+def test_shutdown_handler_sets_event():
+    from saturnzap.ipc import _shutdown_event, _shutdown_handler
+
+    _shutdown_event.clear()
+    result = _shutdown_handler()
+    assert _shutdown_event.is_set()
+    assert "message" in result
+    _shutdown_event.clear()  # cleanup
+
+
+def test_shutdown_via_ipc_call(ipc_server_and_path):
+    """Calling shutdown over IPC should set the shutdown event."""
+    from saturnzap.ipc import _shutdown_event, ipc_call
+
+    _shutdown_event.clear()
+    result = ipc_call("shutdown")
+    assert "message" in result
+    assert _shutdown_event.is_set()
+    _shutdown_event.clear()  # cleanup

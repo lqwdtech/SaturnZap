@@ -114,8 +114,10 @@ def test_fetch_402_with_payment():
     )
 
     mock_pay_result = {
+        "payment_id": "payid_abc",
         "payment_hash": "abc123",
         "preimage": "pre456",
+        "amount_msat": 100_000,
         "amount_sats": 100,
         "fee_sats": 1,
     }
@@ -134,6 +136,44 @@ def test_fetch_402_with_payment():
     assert result.amount_sats == 100
     assert result.fee_sats == 1
     assert "paid content" in result.body
+
+
+def test_fetch_402_authorization_header_includes_preimage():
+    """The retry request should include the preimage in the LSAT header."""
+    challenge_header = 'LSAT macaroon="mac_abc", invoice="lntbs100n1ptest"'
+
+    resp_402 = httpx.Response(
+        402,
+        text="Payment Required",
+        headers={"www-authenticate": challenge_header},
+        request=httpx.Request("GET", "https://api.example.com/paid"),
+    )
+    resp_200 = httpx.Response(
+        200,
+        text='{"ok": true}',
+        request=httpx.Request("GET", "https://api.example.com/paid"),
+    )
+
+    mock_pay_result = {
+        "payment_id": "payid_xyz",
+        "payment_hash": "hash_xyz",
+        "preimage": "deadbeef01234567",
+        "amount_msat": 100_000,
+    }
+
+    with (
+        patch("httpx.Client") as mock_client,
+        patch("saturnzap.payments.pay_invoice", return_value=mock_pay_result),
+    ):
+        instance = mock_client.return_value.__enter__.return_value
+        instance.request.side_effect = [resp_402, resp_200]
+
+        l402.fetch("https://api.example.com/paid")
+
+    # The second call should have the LSAT token with preimage
+    retry_call = instance.request.call_args_list[1]
+    auth_header = retry_call.kwargs.get("headers", {}).get("Authorization", "")
+    assert "mac_abc:deadbeef01234567" in auth_header
 
 
 def test_fetch_402_no_www_authenticate():
@@ -259,8 +299,9 @@ def test_stale_token_evicted(tmp_path, monkeypatch):
     )
 
     mock_pay = {
+        "payment_id": "payid_new",
         "payment_hash": "newhash", "preimage": "newpre",
-        "amount_sats": 100, "fee_sats": 0,
+        "amount_msat": 100_000, "amount_sats": 100, "fee_sats": 0,
     }
 
     with (

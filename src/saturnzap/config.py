@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -58,9 +59,18 @@ def set_network(network: str) -> None:
 
 
 def get_network() -> str:
-    """Return the active network: CLI override > config.toml > default."""
+    """Return the active network: CLI flag > env var > config.toml > default."""
     if _active_network is not None:
         return _active_network
+    env_net = os.environ.get("SZ_NETWORK")
+    if env_net:
+        if env_net not in VALID_NETWORKS:
+            msg = (
+                f"Invalid SZ_NETWORK '{env_net}'. "
+                f"Choose from: {', '.join(VALID_NETWORKS)}"
+            )
+            raise ValueError(msg)
+        return env_net
     cfg = _load_config_raw()
     return cfg.get("network", DEFAULT_NETWORK)
 
@@ -76,6 +86,10 @@ def resolve_esplora(network: str, config_override: str | None = None) -> str:
     """
     if config_override:
         return config_override
+
+    env_url = os.environ.get("SZ_ESPLORA_URL")
+    if env_url:
+        return env_url
 
     urls = ESPLORA_FALLBACKS.get(network, ESPLORA_FALLBACKS["bitcoin"])
     for url in urls:

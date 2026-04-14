@@ -8,6 +8,29 @@ from saturnzap.node import _require_node, _use_ipc
 
 DEFAULT_INVOICE_EXPIRY_SECS = 3600  # 1 hour
 
+# Maximum attempts to look up the preimage after a successful send.
+_PREIMAGE_POLL_ATTEMPTS = 10
+_PREIMAGE_POLL_INTERVAL = 0.5  # seconds
+
+
+def _extract_preimage(node: object, payment_id: object) -> str | None:
+    """Look up a completed payment and return its preimage hex string.
+
+    ``bolt11_payment().send()`` is synchronous — the preimage should be
+    available immediately.  We poll briefly as a safety net.
+    """
+    import time
+
+    pid_str = str(payment_id)
+    for _ in range(_PREIMAGE_POLL_ATTEMPTS):
+        for p in node.list_payments():  # type: ignore[union-attr]
+            if str(p.id) != pid_str:
+                continue
+            if hasattr(p.kind, "preimage") and p.kind.preimage is not None:
+                return str(p.kind.preimage)
+        time.sleep(_PREIMAGE_POLL_INTERVAL)
+    return None
+
 
 def _ipc(method: str, **params: object) -> object:
     from saturnzap.ipc import ipc_call
@@ -95,10 +118,12 @@ def pay_invoice(invoice_str: str, max_sats: int | None = None) -> dict:
             )
 
     payment_id = node.bolt11_payment().send(invoice, None)
+    preimage = _extract_preimage(node, payment_id)
     return {
         "payment_id": str(payment_id),
         "payment_hash": invoice.payment_hash(),
         "amount_msat": invoice_amount_msat,
+        "preimage": preimage,
     }
 
 

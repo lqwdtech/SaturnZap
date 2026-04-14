@@ -178,6 +178,61 @@ class TestNetworkSwitching:
         finally:
             cfg._active_network = old
 
+
+# ── Environment variable overrides ───────────────────────────────
+
+
+class TestEnvVarOverrides:
+    def test_sz_network_env_overrides_default(self, monkeypatch):
+        """SZ_NETWORK env var should override the default network."""
+        import saturnzap.config as cfg
+        old = cfg._active_network
+        try:
+            cfg._active_network = None
+            monkeypatch.setenv("SZ_NETWORK", "signet")
+            assert cfg.get_network() == "signet"
+        finally:
+            cfg._active_network = old
+
+    def test_cli_flag_overrides_sz_network_env(self, monkeypatch):
+        """CLI --network (set_network) should override SZ_NETWORK env."""
+        import saturnzap.config as cfg
+        old = cfg._active_network
+        try:
+            monkeypatch.setenv("SZ_NETWORK", "signet")
+            cfg.set_network("testnet")
+            assert cfg.get_network() == "testnet"
+        finally:
+            cfg._active_network = old
+
+    def test_sz_network_invalid_raises(self, monkeypatch):
+        """Invalid SZ_NETWORK should raise ValueError."""
+        import pytest
+
+        import saturnzap.config as cfg
+        old = cfg._active_network
+        try:
+            cfg._active_network = None
+            monkeypatch.setenv("SZ_NETWORK", "regtest")
+            with pytest.raises(ValueError, match="Invalid SZ_NETWORK"):
+                cfg.get_network()
+        finally:
+            cfg._active_network = old
+
+    def test_sz_esplora_url_env_overrides_probing(self, monkeypatch):
+        """SZ_ESPLORA_URL env var should bypass probing."""
+        monkeypatch.setenv("SZ_ESPLORA_URL", "https://custom-esplora.example/api")
+        with patch("saturnzap.config.httpx.get") as mock_get:
+            result = resolve_esplora("signet")
+            mock_get.assert_not_called()
+        assert result == "https://custom-esplora.example/api"
+
+    def test_config_override_still_wins_over_env(self, monkeypatch):
+        """Config file esplora_url should still override SZ_ESPLORA_URL env."""
+        monkeypatch.setenv("SZ_ESPLORA_URL", "https://env-esplora.example/api")
+        result = resolve_esplora("signet", "https://toml-esplora.example/api")
+        assert result == "https://toml-esplora.example/api"
+
     def test_get_network_reads_config_toml(self, tmp_path, monkeypatch):
         import saturnzap.config as cfg
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
