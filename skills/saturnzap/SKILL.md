@@ -261,6 +261,7 @@ When the systemd service is running, the node stays up between CLI calls (no per
 - **Never expose the mnemonic** — the seed phrase from `sz init` must never appear in chat, logs, or tool output after initial display.
 - **Check balance first** — payment commands now check balance automatically and return `INSUFFICIENT_FUNDS` with the current balance. You can also run `sz balance` before large payments.
 - **Parse JSON output** — all `sz` commands output JSON to stdout on success, stderr on error. Use the `status` field to branch logic.
+- **Check for warnings** — `sz pay`, `sz keysend`, `sz balance`, and `sz fetch` may include a `"warnings"` array when channel capacity is low or no channels exist. Act on warnings: open a channel, request inbound liquidity, or log for review.
 - **Mainnet by default** — SaturnZap defaults to Bitcoin mainnet (real sats). Use `--network signet` for testing. Always use `--max-sats` spending caps on mainnet.
 - **Passphrase security** — `SZ_PASSPHRASE` encrypts the seed on disk. Keep it out of chat and logs.
 

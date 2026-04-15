@@ -418,6 +418,9 @@ def l402_fetch(
     except (ValueError, _json.JSONDecodeError):
         resp["body"] = result.body
 
+    if result.warnings:
+        resp["warnings"] = result.warnings
+
     return resp
 
 

@@ -269,13 +269,22 @@ def get_balance() -> dict:
     node.sync_wallets()
     bal = node.list_balances()
     channels = [_channel_to_dict(c) for c in node.list_channels()]
-    return {
+    result = {
         "onchain_sats": bal.total_onchain_balance_sats,
         "spendable_onchain_sats": bal.spendable_onchain_balance_sats,
         "lightning_sats": bal.total_lightning_balance_sats,
         "anchor_reserve_sats": bal.total_anchor_channels_reserve_sats,
         "channels": channels,
     }
+
+    # Balance-related warnings (no channels, critical health, etc.)
+    from saturnzap import liquidity
+
+    warnings = liquidity.balance_warnings(result)
+    if warnings:
+        result["warnings"] = warnings
+
+    return result
 
 
 # ── Peers ────────────────────────────────────────────────────────

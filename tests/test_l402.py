@@ -138,6 +138,44 @@ def test_fetch_402_with_payment():
     assert "paid content" in result.body
 
 
+def test_fetch_402_propagates_warnings():
+    """Payment warnings from pay_invoice should propagate to FetchResult."""
+    challenge_header = 'LSAT macaroon="mac1", invoice="lntbs100n1ptest"'
+
+    resp_402 = httpx.Response(
+        402,
+        text="Payment Required",
+        headers={"www-authenticate": challenge_header},
+        request=httpx.Request("GET", "https://api.example.com/paid"),
+    )
+    resp_200 = httpx.Response(
+        200,
+        text='{"ok": true}',
+        request=httpx.Request("GET", "https://api.example.com/paid"),
+    )
+
+    mock_pay_result = {
+        "payment_id": "payid_w",
+        "payment_hash": "hash_w",
+        "preimage": "pre_w",
+        "amount_msat": 100_000,
+        "warnings": ["Low outbound (15%) on channel with aabbcc… "
+                      "— consider opening a new channel or receiving payments."],
+    }
+
+    with (
+        patch("httpx.Client") as mock_client,
+        patch("saturnzap.payments.pay_invoice", return_value=mock_pay_result),
+    ):
+        instance = mock_client.return_value.__enter__.return_value
+        instance.request.side_effect = [resp_402, resp_200]
+
+        result = l402.fetch("https://api.example.com/paid")
+
+    assert result.warnings == mock_pay_result["warnings"]
+    assert "Low outbound" in result.warnings[0]
+
+
 def test_fetch_402_authorization_header_includes_preimage():
     """The retry request should include the preimage in the LSAT header."""
     challenge_header = 'LSAT macaroon="mac_abc", invoice="lntbs100n1ptest"'

@@ -807,6 +807,9 @@ def fetch(
     except (json.JSONDecodeError, ValueError):
         resp["body"] = result.body
 
+    if result.warnings:
+        resp["warnings"] = result.warnings
+
     output.ok(**resp)
 
 

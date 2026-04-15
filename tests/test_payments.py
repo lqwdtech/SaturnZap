@@ -287,6 +287,110 @@ def test_keysend_insufficient_funds(mock_node):
         payments.keysend("02abc...", 1000)
 
 
+# ── Post-payment warnings ───────────────────────────────────────
+
+
+def _make_channel(
+    outbound_msat: int = 50_000_000,
+    value_sats: int = 100_000,
+    usable: bool = True,
+    peer: str = "aabbcc",
+) -> dict:
+    return {
+        "channel_id": "ch01",
+        "counterparty_node_id": peer,
+        "channel_value_sats": value_sats,
+        "outbound_capacity_msat": outbound_msat,
+        "inbound_capacity_msat": (value_sats * 1000) - outbound_msat,
+        "is_channel_ready": True,
+        "is_usable": usable,
+        "is_outbound": True,
+        "is_announced": False,
+        "confirmations": 6,
+        "funding_txo": None,
+    }
+
+
+def test_pay_invoice_includes_warnings_when_low(mock_node):
+    """pay_invoice should include warnings when outbound capacity is low."""
+    mock_inv = MagicMock()
+    mock_inv.amount_milli_satoshis.return_value = 1_000_000
+    mock_inv.payment_hash.return_value = "payhash"
+    mock_node.bolt11_payment.return_value.send.return_value = "payid1"
+    paid = SimpleNamespace(
+        id="payid1",
+        kind=SimpleNamespace(preimage="deadbeef"),
+    )
+    mock_node.list_payments.return_value = [paid]
+
+    low_channel = _make_channel(outbound_msat=10_000_000)  # 10%
+    mock_node.list_channels.return_value = [SimpleNamespace(**low_channel)]
+
+    with (
+        patch("saturnzap.payments._require_node", return_value=mock_node),
+        patch("ldk_node.Bolt11Invoice.from_str", return_value=mock_inv),
+    ):
+        result = payments.pay_invoice("lntbs1000...")
+
+    assert "warnings" in result
+    assert any("Low outbound" in w for w in result["warnings"])
+
+
+def test_pay_invoice_no_warnings_when_healthy(mock_node):
+    """pay_invoice should not include warnings when channels are healthy."""
+    mock_inv = MagicMock()
+    mock_inv.amount_milli_satoshis.return_value = 1_000_000
+    mock_inv.payment_hash.return_value = "payhash"
+    mock_node.bolt11_payment.return_value.send.return_value = "payid2"
+    paid = SimpleNamespace(
+        id="payid2",
+        kind=SimpleNamespace(preimage="deadbeef"),
+    )
+    mock_node.list_payments.return_value = [paid]
+
+    healthy_channel = _make_channel(outbound_msat=50_000_000)  # 50%
+    mock_node.list_channels.return_value = [SimpleNamespace(**healthy_channel)]
+
+    with (
+        patch("saturnzap.payments._require_node", return_value=mock_node),
+        patch("ldk_node.Bolt11Invoice.from_str", return_value=mock_inv),
+    ):
+        result = payments.pay_invoice("lntbs1000...")
+
+    assert "warnings" not in result
+
+
+def test_keysend_includes_warnings_when_low(mock_node):
+    """keysend should include warnings when outbound capacity is low."""
+    mock_node.spontaneous_payment.return_value.send.return_value = "ksend_w"
+
+    low_channel = _make_channel(outbound_msat=10_000_000)  # 10%
+    mock_node.list_channels.return_value = [SimpleNamespace(**low_channel)]
+
+    with (
+        patch("saturnzap.payments._require_node", return_value=mock_node),
+    ):
+        result = payments.keysend("02abc...", 500)
+
+    assert "warnings" in result
+    assert any("Low outbound" in w for w in result["warnings"])
+
+
+def test_keysend_no_warnings_when_healthy(mock_node):
+    """keysend should not include warnings when channels are healthy."""
+    mock_node.spontaneous_payment.return_value.send.return_value = "ksend_h"
+
+    healthy_channel = _make_channel(outbound_msat=50_000_000)  # 50%
+    mock_node.list_channels.return_value = [SimpleNamespace(**healthy_channel)]
+
+    with (
+        patch("saturnzap.payments._require_node", return_value=mock_node),
+    ):
+        result = payments.keysend("02abc...", 500)
+
+    assert "warnings" not in result
+
+
 # ── list_transactions ────────────────────────────────────────────
 
 

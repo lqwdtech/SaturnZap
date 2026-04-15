@@ -106,6 +106,7 @@ class FetchResult:
     fee_sats: int | None = None
     duration_ms: int | None = None
     headers: dict = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
 
 
 def fetch(
@@ -207,6 +208,7 @@ def fetch(
             fee_sats=pay_result.get("fee_sats"),
             duration_ms=elapsed,
             headers=dict(resp2.headers),
+            warnings=pay_result.get("warnings", []),
         )
 
 

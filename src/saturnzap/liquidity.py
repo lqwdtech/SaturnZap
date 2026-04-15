@@ -82,6 +82,64 @@ def _generate_recommendations(
     return recs
 
 
+def post_payment_warnings(channels: list[dict]) -> list[str]:
+    """Return warnings when outbound capacity is low after a payment.
+
+    Accepts the channel dicts from ``node.list_channels()``.
+    Returns an empty list when all channels are healthy.
+    """
+    cfg = load_liquidity_config()
+    outbound_thresh = cfg.get("outbound_threshold_percent", 20)
+    warnings: list[str] = []
+
+    usable = [c for c in channels if c.get("is_usable")]
+    for ch in usable:
+        cap = ch["channel_value_sats"]
+        if cap == 0:
+            continue
+        outbound_pct = (ch["outbound_capacity_msat"] // 1000) / cap * 100
+        if outbound_pct < outbound_thresh:
+            peer = ch["counterparty_node_id"][:12]
+            warnings.append(
+                f"Low outbound ({outbound_pct:.0f}%) on channel with {peer}… "
+                "— consider opening a new channel or receiving payments."
+            )
+
+    return warnings
+
+
+def balance_warnings(balance: dict) -> list[str]:
+    """Return warnings for balance-related issues.
+
+    Accepts the dict from ``node.get_balance()``.
+    Returns an empty list when everything looks healthy.
+    """
+    warnings: list[str] = []
+    channels = balance.get("channels", [])
+
+    if not channels:
+        if balance.get("spendable_onchain_sats", 0) > 0:
+            warnings.append(
+                "On-chain funds available but no Lightning channels. "
+                "Use 'sz channels open --lsp lqwd' to start sending payments."
+            )
+        else:
+            warnings.append(
+                "No channels and no on-chain funds. "
+                "Fund your wallet with 'sz address' to get started."
+            )
+        return warnings
+
+    usable = [c for c in channels if c.get("is_usable")]
+    if usable and all(_health_score(c) < 20 for c in usable):
+        warnings.append(
+            "All channels critically low. "
+            "Open a new channel to restore sending capacity."
+        )
+
+    return warnings
+
+
 def get_status() -> dict:
     """Return a liquidity status report with per-channel health and recommendations."""
     if _use_ipc():

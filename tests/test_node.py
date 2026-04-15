@@ -288,6 +288,42 @@ def test_get_balance_returns_dict(mock_ldk_node):
     assert result["channels"] == []
 
 
+def test_get_balance_warnings_no_channels(mock_ldk_node):
+    """Balance should include warnings when no channels but has on-chain funds."""
+    mock_ldk_node.list_channels.return_value = []
+    node._node = mock_ldk_node
+
+    with patch("saturnzap.node._require_node", return_value=mock_ldk_node):
+        result = node.get_balance()
+
+    assert "warnings" in result
+    assert any("sz channels open" in w for w in result["warnings"])
+
+
+def test_get_balance_no_warnings_with_healthy_channels(mock_ldk_node):
+    """Balance should not include warnings when channels are healthy."""
+    ch = SimpleNamespace(
+        channel_id="ch01",
+        counterparty_node_id="02peer",
+        channel_value_sats=100_000,
+        outbound_capacity_msat=50_000_000,
+        inbound_capacity_msat=50_000_000,
+        is_channel_ready=True,
+        is_usable=True,
+        is_outbound=True,
+        is_announced=False,
+        confirmations=6,
+        funding_txo=None,
+    )
+    mock_ldk_node.list_channels.return_value = [ch]
+    node._node = mock_ldk_node
+
+    with patch("saturnzap.node._require_node", return_value=mock_ldk_node):
+        result = node.get_balance()
+
+    assert "warnings" not in result
+
+
 # ── list_peers ───────────────────────────────────────────────────
 
 

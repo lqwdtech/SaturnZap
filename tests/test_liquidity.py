@@ -93,6 +93,104 @@ def test_label_critical():
     assert liquidity._health_label(19) == "critical"
 
 
+# ── post_payment_warnings ────────────────────────────────────────
+
+
+def test_post_payment_warnings_healthy_channels():
+    """No warnings when outbound is above threshold."""
+    ch = _make_channel(outbound_msat=50_000_000, value_sats=100_000)
+    with patch("saturnzap.liquidity.load_liquidity_config", return_value=_DEFAULT_CFG):
+        result = liquidity.post_payment_warnings([ch])
+    assert result == []
+
+
+def test_post_payment_warnings_low_outbound():
+    """Warn when outbound drops below threshold."""
+    ch = _make_channel(outbound_msat=15_000_000, value_sats=100_000)  # 15%
+    with patch("saturnzap.liquidity.load_liquidity_config", return_value=_DEFAULT_CFG):
+        result = liquidity.post_payment_warnings([ch])
+    assert len(result) == 1
+    assert "Low outbound" in result[0]
+    assert "15%" in result[0]
+
+
+def test_post_payment_warnings_multiple_low():
+    """Multiple low channels produce multiple warnings."""
+    ch1 = _make_channel(outbound_msat=10_000_000, value_sats=100_000, peer="aaa111")
+    ch2 = _make_channel(outbound_msat=5_000_000, value_sats=100_000, peer="bbb222")
+    with patch("saturnzap.liquidity.load_liquidity_config", return_value=_DEFAULT_CFG):
+        result = liquidity.post_payment_warnings([ch1, ch2])
+    assert len(result) == 2
+
+
+def test_post_payment_warnings_empty_channels():
+    """No crash with empty channel list."""
+    with patch("saturnzap.liquidity.load_liquidity_config", return_value=_DEFAULT_CFG):
+        result = liquidity.post_payment_warnings([])
+    assert result == []
+
+
+def test_post_payment_warnings_zero_capacity():
+    """Zero-capacity channel is skipped (no division by zero)."""
+    ch = _make_channel(outbound_msat=0, value_sats=0)
+    with patch("saturnzap.liquidity.load_liquidity_config", return_value=_DEFAULT_CFG):
+        result = liquidity.post_payment_warnings([ch])
+    assert result == []
+
+
+def test_post_payment_warnings_unusable_channel_ignored():
+    """Non-usable channels are not checked for outbound warnings."""
+    ch = _make_channel(outbound_msat=5_000_000, value_sats=100_000, usable=False)
+    with patch("saturnzap.liquidity.load_liquidity_config", return_value=_DEFAULT_CFG):
+        result = liquidity.post_payment_warnings([ch])
+    assert result == []
+
+
+# ── balance_warnings ─────────────────────────────────────────────
+
+
+def test_balance_warnings_has_channels_healthy():
+    """No warnings when channels exist and are healthy."""
+    ch = _make_channel(outbound_msat=50_000_000, value_sats=100_000)
+    balance = {"spendable_onchain_sats": 1000, "channels": [ch]}
+    result = liquidity.balance_warnings(balance)
+    assert result == []
+
+
+def test_balance_warnings_no_channels_has_funds():
+    """Warn about opening channels when on-chain funds available."""
+    balance = {"spendable_onchain_sats": 50_000, "channels": []}
+    result = liquidity.balance_warnings(balance)
+    assert len(result) == 1
+    assert "sz channels open" in result[0]
+
+
+def test_balance_warnings_no_channels_no_funds():
+    """Warn about funding when no channels and no funds."""
+    balance = {"spendable_onchain_sats": 0, "channels": []}
+    result = liquidity.balance_warnings(balance)
+    assert len(result) == 1
+    assert "sz address" in result[0]
+
+
+def test_balance_warnings_all_critical():
+    """Warn when all usable channels are critically low."""
+    ch = _make_channel(outbound_msat=5_000_000, value_sats=100_000)  # score=10
+    balance = {"spendable_onchain_sats": 1000, "channels": [ch]}
+    result = liquidity.balance_warnings(balance)
+    assert len(result) == 1
+    assert "critically low" in result[0]
+
+
+def test_balance_warnings_mixed_health_no_warning():
+    """No critical warning when at least one channel is healthy."""
+    healthy = _make_channel(outbound_msat=50_000_000, value_sats=100_000)
+    low = _make_channel(outbound_msat=5_000_000, value_sats=100_000)
+    balance = {"spendable_onchain_sats": 1000, "channels": [healthy, low]}
+    result = liquidity.balance_warnings(balance)
+    assert result == []
+
+
 # ── Recommendations ──────────────────────────────────────────────
 
 _DEFAULT_CFG = {"outbound_threshold_percent": 20, "inbound_threshold_percent": 20}

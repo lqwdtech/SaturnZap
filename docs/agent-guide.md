@@ -137,6 +137,36 @@ Channel issues?
 
 ---
 
+## Proactive Warnings
+
+SaturnZap includes contextual warnings in payment and balance responses when action
+is needed. Warnings appear as an optional `"warnings"` array — omitted when everything
+is healthy.
+
+### Where warnings appear
+
+- **`sz pay` / `sz keysend`** — after a payment, if any channel's outbound capacity
+  drops below 20% (configurable via `outbound_threshold_percent` in `config.toml`)
+- **`sz balance`** — when on-chain funds exist but no Lightning channels are open,
+  or when all channels are critically low
+- **`sz fetch`** — propagated from the underlying L402 payment
+
+### Agent pattern
+
+```python
+result = json.loads(subprocess.run(["sz", "pay", ...], capture_output=True).stdout)
+if "warnings" in result:
+    for w in result["warnings"]:
+        if "no Lightning channels" in w:
+            # Open a channel
+            subprocess.run(["sz", "channels", "open", "--lsp", "lqwd", ...])
+        elif "Low outbound" in w:
+            # Log for review or request inbound liquidity
+            log.warning(w)
+```
+
+---
+
 ## Anti-Patterns
 
 | Don't | Why | Do Instead |

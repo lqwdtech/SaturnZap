@@ -139,9 +139,14 @@ via an external IP service; it is `null` if detection fails.
       "confirmations": 6,
       "funding_txo": "e23d2889bb8c9581..."
     }
-  ]
+  ],
+  "warnings": ["On-chain funds available but no Lightning channels. Use 'sz channels open --lsp lqwd' to start sending payments."]
 }
 ```
+
+The `warnings` field is an optional array. It is present only when there are
+actionable issues — for example, no Lightning channels when on-chain funds exist,
+or all channels critically low. Omitted when everything is healthy.
 
 ### `sz transactions --limit 20`
 
@@ -306,12 +311,16 @@ Variable-amount invoice (`--amount-sats 0`):
   "payment_hash": "abc123...",
   "amount_msat": 1000000,
   "preimage": "deadbeef01234567...",
-  "message": "Payment sent."
+  "message": "Payment sent.",
+  "warnings": ["Low outbound (15%) on channel with 03992d76a7ea… — consider opening a new channel or receiving payments."]
 }
 ```
 
 The `preimage` field is the proof-of-payment. It is `null` if LDK has not yet
 resolved the preimage (rare — typically available immediately after payment).
+
+The `warnings` field is an optional array, present only when outbound channel
+capacity drops below the configured threshold (default: 20%) after the payment.
 
 ### `sz keysend --pubkey <pubkey> --amount-sats 100`
 
@@ -321,9 +330,13 @@ resolved the preimage (rare — typically available immediately after payment).
   "payment_id": "pay_def456...",
   "pubkey": "03992d76a7ea...",
   "amount_sats": 100,
-  "message": "Keysend sent."
+  "message": "Keysend sent.",
+  "warnings": ["Low outbound (15%) on channel with 03992d76a7ea… — consider opening a new channel or receiving payments."]
 }
 ```
+
+The `warnings` field behavior is the same as `sz pay` — present only when
+channel capacity is low after the payment.
 
 ---
 
@@ -354,11 +367,15 @@ With L402 payment (402 → pay → retry):
   "amount_sats": 10,
   "fee_sats": 1,
   "duration_ms": 850,
-  "body": {"premium": "content"}
+  "body": {"premium": "content"},
+  "warnings": ["Low outbound (15%) on channel with 03992d76a7ea… — consider opening a new channel or receiving payments."]
 }
 ```
 
 The `body` field is parsed as JSON if possible, otherwise returned as a raw string.
+
+The `warnings` field propagates from the underlying payment — present only when
+channel capacity is low after the L402 invoice payment.
 
 ---
 
@@ -406,6 +423,46 @@ The `body` field is parsed as JSON if possible, otherwise returned as a raw stri
   "fee_sats": 5000,
   "message": "Inbound liquidity request sent to LQWD-Canada. ..."
 }
+```
+
+---
+
+## Warnings
+
+Some responses include an optional `"warnings"` array with actionable messages.
+Warnings are **omitted** (not an empty array) when everything is healthy. This
+ensures backward compatibility — existing agents that don't check for `"warnings"`
+are unaffected.
+
+### When warnings appear
+
+| Command | Trigger |
+|---|---|
+| `sz balance` | No channels but has on-chain funds; no channels and no funds; all channels critically low |
+| `sz pay` | Outbound capacity below threshold after payment |
+| `sz keysend` | Outbound capacity below threshold after payment |
+| `sz fetch` | Propagated from the underlying L402 invoice payment |
+
+### Thresholds
+
+The outbound capacity threshold defaults to **20%** and is configurable in
+`config.toml`:
+
+```toml
+[liquidity]
+outbound_threshold_percent = 20
+```
+
+### Agent handling
+
+Check for the `"warnings"` key after each payment or balance call:
+
+```python
+result = json.loads(subprocess.run(["sz", "pay", ...], capture_output=True).stdout)
+if "warnings" in result:
+    for w in result["warnings"]:
+        # Decide: open a channel, request inbound, or log for review
+        print(w)
 ```
 
 ---

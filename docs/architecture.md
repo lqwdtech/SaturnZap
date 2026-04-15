@@ -265,9 +265,9 @@ Triggered on version tags (`v*`):
 | `test_keystore.py` | Seed encryption | Generate, encrypt, decrypt, wrong passphrase, permissions |
 | `test_output.py` | JSON output | ok/error format, pretty mode, TTY detection, CommandError |
 | `test_lqwd.py` | Node directory | Region filter, timezone selection, SZ_REGION override |
-| `test_payments.py` | Payment helpers | Kind/direction/status string conversion, preimage extraction |
-| `test_l402.py` | L402 parsing | LSAT/L402 header formats, token caching, preimage auth |
-| `test_liquidity.py` | Health scoring | Score calculation, labels, recommendations |
+| `test_payments.py` | Payment helpers | Kind/direction/status string conversion, preimage extraction, post-payment warnings |
+| `test_l402.py` | L402 parsing | LSAT/L402 header formats, token caching, preimage auth, warning propagation |
+| `test_liquidity.py` | Health scoring | Score calculation, labels, recommendations, balance/payment warnings |
 | `test_config.py` | Config & env vars | Config override, probe logic, SZ_NETWORK/SZ_ESPLORA_URL |
 | `test_mcp_server.py` | MCP server | Tool registration, tool count, function tests |
 | `test_ipc.py` | IPC layer | Echo, errors, CommandError fidelity, shutdown, concurrency |

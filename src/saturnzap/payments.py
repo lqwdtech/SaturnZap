@@ -119,12 +119,23 @@ def pay_invoice(invoice_str: str, max_sats: int | None = None) -> dict:
 
     payment_id = node.bolt11_payment().send(invoice, None)
     preimage = _extract_preimage(node, payment_id)
-    return {
+    result = {
         "payment_id": str(payment_id),
         "payment_hash": invoice.payment_hash(),
         "amount_msat": invoice_amount_msat,
         "preimage": preimage,
     }
+
+    # Post-payment capacity warnings
+    from saturnzap import liquidity
+    from saturnzap.node import _channel_to_dict
+
+    channels = [_channel_to_dict(c) for c in node.list_channels()]
+    warnings = liquidity.post_payment_warnings(channels)
+    if warnings:
+        result["warnings"] = warnings
+
+    return result
 
 
 def keysend(pubkey: str, amount_sats: int) -> dict:
@@ -147,11 +158,22 @@ def keysend(pubkey: str, amount_sats: int) -> dict:
 
     amount_msat = amount_sats * 1000
     payment_id = node.spontaneous_payment().send(amount_msat, pubkey, None)
-    return {
+    result = {
         "payment_id": str(payment_id),
         "pubkey": pubkey,
         "amount_sats": amount_sats,
     }
+
+    # Post-payment capacity warnings
+    from saturnzap import liquidity
+    from saturnzap.node import _channel_to_dict
+
+    channels = [_channel_to_dict(c) for c in node.list_channels()]
+    warnings = liquidity.post_payment_warnings(channels)
+    if warnings:
+        result["warnings"] = warnings
+
+    return result
 
 
 def list_transactions(limit: int = 20) -> list[dict]:
