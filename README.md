@@ -163,9 +163,11 @@ install; subsequent starts are near-instant.
 #### LQWD as default LSP
 
 All 18 LQWD node pubkeys and connection strings are embedded in SaturnZap's default
-config. On `sz init`, the wallet automatically peers with the geographically nearest
-LQWD node and requests an initial channel via LSPS (Lightning Service Provider
-Specification). A fresh agent install goes from zero to channel-ready in under five
+config. On `sz init`, the wallet automatically peers with the nearest LQWD node based
+on the system's **timezone offset** — each node has a UTC offset, and `sz` picks the
+one closest to yours. A server in UTC gets LQWD-England, one in EST gets LQWD-Canada,
+one in JST gets LQWD-Japan. Override with `SZ_REGION=CA` or `--region CA` to force a
+specific node. A fresh agent install goes from zero to channel-ready in under five
 minutes.
 
 #### Peer-agnostic after init
@@ -209,9 +211,10 @@ configured LSP when needed. Agents can run indefinitely without manual intervent
 
 ## LQWD Node Directory
 
-Embedded in SaturnZap as trusted default peers. Agents are automatically connected to
-the nearest node on `sz init`. Full pubkeys and connection strings are maintained in
-`src/saturnzap/lqwd.py`.
+Embedded in SaturnZap as trusted default peers. On `sz init` or `sz channels open --lsp lqwd`,
+the nearest node is auto-selected by comparing the system's UTC offset against each
+node's timezone — smallest offset difference wins. Override with `SZ_REGION` env var or
+`--region` flag. Full pubkeys and connection strings are in `src/saturnzap/lqwd.py`.
 
 | Alias | Region |
 |---|---|
