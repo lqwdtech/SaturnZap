@@ -210,6 +210,8 @@ sz channels close --channel-id "abc123" --counterparty "03abc..." --force
 sz channels wait --channel-id "abc123" --timeout 300
 ```
 
+**Minimum channel sizes:** LQWD nodes require at least 2,000,000 sats per channel. If the peer rejects, `sz` returns a `CHANNEL_REJECTED` error with the reason (e.g. "below min chan size").
+
 ## Peers
 
 ```bash

@@ -202,7 +202,7 @@ configured LSP when needed. Agents can run indefinitely without manual intervent
 | BIP39 | mnemonic | Seed phrase generation |
 | Package manager | uv | Fast, modern Python tooling |
 | MCP server | mcp ≥1.26 | Model Context Protocol for AI agent integration |
-| Testing | pytest | Unit tests, 95 tests |
+| Testing | pytest | Unit + integration, 415 tests |
 | Linting | ruff | Fast Python linter and formatter |
 
 ---
@@ -496,15 +496,24 @@ enforce a global per-request spending cap on L402 payments.
 │       └── output.py              # JSON output, TTY detection, --pretty
 │
 ├── tests/
-│   ├── test_cli.py
-│   ├── test_keystore.py
-│   ├── test_l402.py
-│   ├── test_liquidity.py
-│   ├── test_lqwd.py
-│   ├── test_output.py
-│   ├── test_payments.py
-│   ├── test_config.py
-│   └── test_mcp_server.py
+│   ├── test_cli.py                # CLI smoke tests
+│   ├── test_keystore.py           # Seed encryption
+│   ├── test_node.py               # Node lifecycle + channel rejection
+│   ├── test_ipc.py                # IPC layer
+│   ├── test_payments.py           # Payment helpers
+│   ├── test_l402.py               # L402 parsing
+│   ├── test_liquidity.py          # Health scoring
+│   ├── test_config.py             # Config + env vars
+│   ├── test_mcp_server.py         # MCP server
+│   ├── test_backup.py             # Backup/restore
+│   ├── test_service.py            # Systemd service
+│   ├── test_lqwd.py               # LQWD directory
+│   ├── test_output.py             # JSON output
+│   ├── integration/               # Multi-command flows
+│   ├── security/                  # Input validation, spending guards
+│   ├── reliability/               # Edge cases, concurrency
+│   ├── ux/                        # Agent workflow scenarios
+│   └── live/                      # Droplet tests (@live marker)
 │
 ├── skills/
 │   └── saturnzap/

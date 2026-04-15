@@ -140,7 +140,7 @@ serve()  # blocks, communicates over stdio
 | Tool | Parameters | Description |
 |---|---|---|
 | `list_channels` | — | List all channels with capacity info. |
-| `open_channel` | `node_id`, `address`, `amount_sats`, `announce` | Open a channel. |
+| `open_channel` | `node_id`, `address`, `amount_sats`, `announce` | Open a channel. Returns `CHANNEL_REJECTED` if peer rejects (e.g. below minimum size). |
 | `close_channel` | `channel_id`, `counterparty_node_id`, `force` | Close a channel. |
 
 ### Payments

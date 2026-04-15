@@ -110,6 +110,10 @@ sz setup --auto
 This time it skips initialization (already done) and opens a channel to the nearest
 LQWD node with your on-chain funds.
 
+> **Minimum channel size:** LQWD nodes require at least **2,000,000 sats** per channel.
+> If the amount is too low, `sz` returns a `CHANNEL_REJECTED` error with the peer's
+> reason (e.g. "below min chan size"). Other Lightning nodes may have different minimums.
+
 ### 5. Verify connectivity
 
 Check that peers can reach your node:

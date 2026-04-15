@@ -227,7 +227,7 @@ env var) support spending caps. For autonomous agents, this is a critical safety
 | BIP39 | mnemonic | ≥0.21 | Seed phrase generation |
 | Env | python-dotenv | ≥1.2 | `.env` file loading |
 | Build | hatchling | — | PEP 517 build backend |
-| Testing | pytest | ≥8.0 | 363 tests |
+| Testing | pytest | ≥8.0 | 415 tests |
 | Linting | ruff | ≥0.9 | Lint + format |
 | Security | bandit + pip-audit + detect-secrets | — | Pre-commit security scan |
 
@@ -257,7 +257,7 @@ Triggered on version tags (`v*`):
 
 ## Testing
 
-363 tests across 13 test files:
+415 tests across 24 test files:
 
 | File | Tests | Covers |
 |---|---|---|
@@ -271,8 +271,13 @@ Triggered on version tags (`v*`):
 | `test_config.py` | Config & env vars | Config override, probe logic, SZ_NETWORK/SZ_ESPLORA_URL |
 | `test_mcp_server.py` | MCP server | Tool registration, tool count, function tests |
 | `test_ipc.py` | IPC layer | Echo, errors, CommandError fidelity, shutdown, concurrency |
-| `test_node.py` | Node lifecycle | Build, start, stop, IPC routing |
+| `test_node.py` | Node lifecycle | Build, start, stop, IPC routing, channel rejection detection |
 | `test_backup.py` | Backup/restore | Export, import, round-trip |
 | `test_service.py` | Systemd service | Unit file generation, install, uninstall |
+| `integration/` | Multi-command flows | Channel lifecycle, payment flow, error cascades, full lifecycle |
+| `security/` | Security hardening | Input validation, seed security, spending guards |
+| `reliability/` | Edge cases | Timeout handling, retry logic, concurrent access |
+| `ux/` | Agent scenarios | JSON output validity, agent workflow patterns |
+| `live/` | Droplet tests | Real mainnet connectivity, peer-to-peer (marked `@live`) |
 
 All tests run without a real LDK node — they mock or test pure logic.
