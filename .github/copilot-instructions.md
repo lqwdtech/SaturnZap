@@ -43,6 +43,7 @@ See [docs/architecture.md](../docs/architecture.md) for diagrams and IPC protoco
 - **Module-level singletons**: `_node`, `_ipc_mode`, `_active_network`, `_pretty` — use `global` with `# noqa: PLW0603`.
 - **Mainnet safety**: `_confirm_mainnet(yes)` gate on any command touching bitcoin network.
 - **LDK Node v0.7.0**: Vendored wheel at `vendor/`. API: `builder.set_entropy_bip39_mnemonic(mnemonic, None)`, `generate_entropy_mnemonic(None)`.
+- **Commit messages**: Plain English, no conventional-commit prefixes (`feat:`, `fix:`, `chore:`). Lead with the outcome. Avoid alarm words (`fix`, `bug`, `warning`, `error`, `vulnerability`). Examples: `Add smart health alerts for payments and balances`, `Security hardening — payment proofs, graceful shutdown, and integrity checks`. Bodies may include technical detail.
 
 ## Test Patterns
 
