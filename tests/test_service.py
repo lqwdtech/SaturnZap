@@ -76,6 +76,7 @@ def test_install_calls_systemctl(monkeypatch, tmp_path):
     with (
         patch.object(service, "_UNIT_PATH", mock_unit_path),
         patch("subprocess.run") as mock_run,
+        patch("saturnzap.node.open_firewall_port", return_value="not_linux"),
     ):
         result = service.install()
 
@@ -157,3 +158,99 @@ def test_status_inactive(tmp_path):
     assert result["is_active"] is False
     assert result["is_enabled"] is False
     assert result["installed"] is False
+
+
+# ── generate_unit — new fields ───────────────────────────────────
+
+
+def test_generate_unit_contains_exec_start_pre(monkeypatch):
+    monkeypatch.setenv("SZ_PASSPHRASE", "testpass")
+    content = service.generate_unit()
+    assert "ExecStartPre=" in content
+    assert "seed.enc" in content
+
+
+def test_generate_unit_contains_mainnet_confirm():
+    content = service.generate_unit(passphrase_env=False)
+    assert "SZ_MAINNET_CONFIRM=yes" in content
+
+
+def test_generate_unit_contains_journal_output():
+    content = service.generate_unit(passphrase_env=False)
+    assert "StandardOutput=journal" in content
+    assert "StandardError=journal" in content
+
+
+# ── install — passphrase validation ──────────────────────────────
+
+
+def test_install_requires_passphrase(monkeypatch, tmp_path):
+    """install() should error when SZ_PASSPHRASE is empty."""
+    monkeypatch.delenv("SZ_PASSPHRASE", raising=False)
+    mock_unit_path = tmp_path / "saturnzap.service"
+
+    with (
+        patch.object(service, "_UNIT_PATH", mock_unit_path),
+        pytest.raises(SystemExit),
+    ):
+        service.install()
+
+
+def test_install_includes_firewall(monkeypatch, tmp_path):
+    monkeypatch.setenv("SZ_PASSPHRASE", "pw")
+    mock_unit_path = tmp_path / "saturnzap.service"
+
+    with (
+        patch.object(service, "_UNIT_PATH", mock_unit_path),
+        patch("subprocess.run") as mock_run,
+        patch("saturnzap.node.open_firewall_port", return_value="opened"),
+    ):
+        result = service.install()
+
+    assert result["firewall"] == "opened"
+    assert mock_run.call_count == 3
+
+
+# ── status — port fields ────────────────────────────────────────
+
+
+def test_status_includes_port(tmp_path):
+    mock_unit_path = tmp_path / "saturnzap.service"
+
+    active_result = MagicMock(stdout="active\n")
+    enabled_result = MagicMock(stdout="enabled\n")
+
+    with (
+        patch.object(service, "_UNIT_PATH", mock_unit_path),
+        patch("subprocess.run", side_effect=[active_result, enabled_result]),
+        patch("saturnzap.service._is_port_listening", return_value=True),
+    ):
+        result = service.status()
+
+    assert "port" in result
+    assert result["port_listening"] is True
+
+
+def test_status_port_not_listening(tmp_path):
+    mock_unit_path = tmp_path / "saturnzap.service"
+
+    active_result = MagicMock(stdout="inactive\n")
+    enabled_result = MagicMock(stdout="disabled\n")
+
+    with (
+        patch.object(service, "_UNIT_PATH", mock_unit_path),
+        patch("subprocess.run", side_effect=[active_result, enabled_result]),
+        patch("saturnzap.service._is_port_listening", return_value=False),
+    ):
+        result = service.status()
+
+    assert result["port_listening"] is False
+
+
+# ── _is_port_listening ───────────────────────────────────────────
+
+
+def test_is_port_listening_false():
+    """Port that's not listening should return False."""
+    # Use a random high port that's almost certainly not in use
+    assert service._is_port_listening(59123) is False

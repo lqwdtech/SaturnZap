@@ -56,9 +56,14 @@ Errors are written to **stderr** and the process exits with a non-zero code.
   "status": "ok",
   "network": "bitcoin",
   "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b1fe3cc2550d7437afe5df59e50",
+  "firewall": "opened",
   "message": "Node started."
 }
 ```
+
+The `firewall` field is present only when running in `--daemon` mode. Values:
+`"opened"`, `"already_open"`, `"ufw_inactive"`, `"ufw_not_found"`, `"not_linux"`,
+`"permission_denied"`, `"error"`. Omitted in non-daemon mode.
 
 ### `sz stop`
 
@@ -98,9 +103,26 @@ Errors are written to **stderr** and the process exits with a non-zero code.
 }
 ```
 
+With `--check` flag:
+
+```json
+{
+  "status": "ok",
+  "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b...",
+  "host": "137.184.229.83",
+  "port": 9737,
+  "uri": "0234b0c302e8c201e0ffd31580bf9106b625505b...@137.184.229.83:9737",
+  "network": "bitcoin",
+  "reachable": true
+}
+```
+
 The `uri` field is the full connection string another wallet needs to connect or open
 a channel to your node. Share this with peers or LSPs. The `host` field is auto-detected
 via an external IP service; it is `null` if detection fails.
+
+The `reachable` field is only present when `--check` is passed. It will be `true`,
+`false`, or `null` (if the external check service is unavailable).
 
 ---
 

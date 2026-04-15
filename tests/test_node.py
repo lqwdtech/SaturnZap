@@ -537,3 +537,140 @@ def test_network_from_str_bitcoin():
 def test_network_from_str_invalid():
     with pytest.raises(KeyError):
         node._network_from_str("invalid")
+
+
+# ── open_firewall_port ───────────────────────────────────────────
+
+
+def test_open_firewall_port_not_linux():
+    with patch("platform.system", return_value="Darwin"):
+        assert node.open_firewall_port() == "not_linux"
+
+
+def test_open_firewall_port_ufw_not_found():
+    with (
+        patch("platform.system", return_value="Linux"),
+        patch("shutil.which", return_value=None),
+    ):
+        assert node.open_firewall_port() == "ufw_not_found"
+
+
+def test_open_firewall_port_ufw_inactive():
+    with (
+        patch("platform.system", return_value="Linux"),
+        patch("shutil.which", return_value="/usr/sbin/ufw"),
+        patch(
+            "subprocess.run",
+            return_value=MagicMock(stdout="Status: inactive\n"),
+        ),
+    ):
+        assert node.open_firewall_port(9737) == "ufw_inactive"
+
+
+def test_open_firewall_port_already_open():
+    with (
+        patch("platform.system", return_value="Linux"),
+        patch("shutil.which", return_value="/usr/sbin/ufw"),
+        patch(
+            "subprocess.run",
+            return_value=MagicMock(
+                stdout="Status: active\n9737/tcp  ALLOW  Anywhere\n",
+            ),
+        ),
+    ):
+        assert node.open_firewall_port(9737) == "already_open"
+
+
+def test_open_firewall_port_opens_successfully():
+    status_result = MagicMock(stdout="Status: active\n")
+    add_result = MagicMock(returncode=0)
+
+    with (
+        patch("platform.system", return_value="Linux"),
+        patch("shutil.which", return_value="/usr/sbin/ufw"),
+        patch("subprocess.run", side_effect=[status_result, add_result]),
+    ):
+        assert node.open_firewall_port(9737) == "opened"
+
+
+def test_open_firewall_port_permission_denied():
+    with (
+        patch("platform.system", return_value="Linux"),
+        patch("shutil.which", return_value="/usr/sbin/ufw"),
+        patch("subprocess.run", side_effect=PermissionError("no sudo")),
+    ):
+        assert node.open_firewall_port(9737) == "permission_denied"
+
+
+def test_open_firewall_port_timeout():
+    import subprocess as sp
+
+    with (
+        patch("platform.system", return_value="Linux"),
+        patch("shutil.which", return_value="/usr/sbin/ufw"),
+        patch("subprocess.run", side_effect=sp.TimeoutExpired("ufw", 5)),
+    ):
+        assert node.open_firewall_port(9737) == "error"
+
+
+def test_open_firewall_port_add_fails():
+    status_result = MagicMock(stdout="Status: active\n")
+    add_result = MagicMock(returncode=1)
+
+    with (
+        patch("platform.system", return_value="Linux"),
+        patch("shutil.which", return_value="/usr/sbin/ufw"),
+        patch("subprocess.run", side_effect=[status_result, add_result]),
+    ):
+        assert node.open_firewall_port(9737) == "error"
+
+
+# ── check_port_reachable ────────────────────────────────────────
+
+
+def test_check_port_reachable_open():
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"check": [{"port": 9737, "status": True}]}
+
+    with patch("httpx.get", return_value=mock_resp):
+        assert node.check_port_reachable("1.2.3.4", 9737) is True
+
+
+def test_check_port_reachable_closed():
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"check": [{"port": 9737, "status": False}]}
+
+    with patch("httpx.get", return_value=mock_resp):
+        assert node.check_port_reachable("1.2.3.4", 9737) is False
+
+
+def test_check_port_reachable_no_host():
+    """Returns None when no host and IP detection fails."""
+    with patch("saturnzap.node._detect_external_ip", return_value=None):
+        assert node.check_port_reachable(None, 9737) is None
+
+
+def test_check_port_reachable_api_failure_falls_back():
+    """Falls back to whatismyip when portchecker.io fails."""
+    import httpx
+
+    def side_effect(url, **kwargs):
+        if "portchecker" in url:
+            raise httpx.HTTPError("down")
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.text = "Port 9737 is open on 1.2.3.4"
+        return resp
+
+    with patch("httpx.get", side_effect=side_effect):
+        assert node.check_port_reachable("1.2.3.4", 9737) is True
+
+
+def test_check_port_reachable_all_services_fail():
+    """Returns None when all external services fail."""
+    import httpx
+
+    with patch("httpx.get", side_effect=httpx.HTTPError("down")):
+        assert node.check_port_reachable("1.2.3.4", 9737) is None

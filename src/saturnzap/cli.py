@@ -112,7 +112,7 @@ def main(
 
 @app.command()
 def init() -> None:
-    """Generate seed, start node, peer with nearest LQWD node."""
+    """Generate seed, encrypt it, and start the Lightning node."""
     from saturnzap import keystore
     from saturnzap import node as node_mod
 
@@ -183,13 +183,28 @@ def setup(
             "seed_path": str(path),
         })
 
-    # Step 2: Generate a receive address
+    # Step 2: Open firewall port (auto mode)
+    if auto:
+        fw = node_mod.open_firewall_port()
+        steps.append({"step": "firewall", "status": fw})
+
+    # Step 3: Generate a receive address
     addr = node_mod.new_onchain_address()
     from saturnzap.config import get_network
     network = get_network()
     steps.append({"step": "address", "address": addr, "network": network})
 
-    # Step 3 (--auto only): Request inbound liquidity from LQWD
+    # Step 4: Connection info
+    if auto:
+        info = node_mod.get_connect_info()
+        steps.append({
+            "step": "connect_info",
+            "uri": info.get("uri"),
+            "host": info.get("host"),
+            "port": info.get("port"),
+        })
+
+    # Step 5 (--auto only): Request inbound liquidity from LQWD
     if auto:
         from saturnzap import liquidity
 
@@ -213,11 +228,31 @@ def setup(
                     "reason": "inbound request failed (fund wallet first)",
                 })
 
+    # Build next_steps guidance
+    next_steps: list[str] = []
+    next_steps.append(f"Send bitcoin to {addr} to fund your wallet.")
+    if auto:
+        next_steps.append(
+            "After funding arrives, run 'sz setup --auto' again to open a channel.",
+        )
+        connect_uri = None
+        for s in steps:
+            if s.get("step") == "connect_info":
+                connect_uri = s.get("uri")
+        if connect_uri:
+            next_steps.append(
+                f"Share your connection URI with peers: {connect_uri}",
+            )
+    else:
+        next_steps.append(
+            "Run 'sz setup --auto' for automatic channel setup after funding.",
+        )
+
     output.ok(
         pubkey=n.node_id(),
         steps=steps,
-        message="Setup complete." if auto else
-                f"Setup complete. Fund your wallet: send signet sats to {addr}",
+        next_steps=next_steps,
+        message="Setup complete.",
     )
 
 
@@ -238,7 +273,11 @@ def start(
     from saturnzap import node as node_mod
 
     n = node_mod._require_node()
-    output.ok(pubkey=n.node_id(), message="Node started.")
+    firewall = node_mod.open_firewall_port() if daemon else None
+    resp = {"pubkey": n.node_id(), "message": "Node started."}
+    if firewall:
+        resp["firewall"] = firewall
+    output.ok(**resp)
 
     if daemon:
         # Start IPC server so CLI commands can talk to this daemon
@@ -328,11 +367,23 @@ def status() -> None:
 
 
 @app.command(name="connect-info")
-def connect_info() -> None:
+def connect_info(
+    check: Annotated[
+        bool,
+        typer.Option(
+            "--check",
+            help="Test if the Lightning port is reachable from the internet.",
+        ),
+    ] = False,
+) -> None:
     """Show this node's connection URI (pubkey@host:port) for sharing."""
     from saturnzap import node as node_mod
 
     info = node_mod.get_connect_info()
+    if check:
+        info["reachable"] = node_mod.check_port_reachable(
+            host=info.get("host"), port=info.get("port"),
+        )
     output.ok(**info)
 
 

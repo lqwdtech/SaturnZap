@@ -510,3 +510,107 @@ def test_output_always_includes_network(mock_node):
         result = runner.invoke(app, ["balance"])
     data = json.loads(result.output)
     assert "network" in data
+
+
+# ── connect-info --check ─────────────────────────────────────────
+
+
+def test_connect_info_check_flag(mock_node):
+    with (
+        patch("saturnzap.node._require_node", return_value=mock_node),
+        patch("saturnzap.node._detect_external_ip", return_value="1.2.3.4"),
+        patch("saturnzap.node.check_port_reachable", return_value=True),
+    ):
+        result = runner.invoke(app, ["connect-info", "--check"])
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["status"] == "ok"
+    assert data["reachable"] is True
+
+
+def test_connect_info_check_null(mock_node):
+    """reachable is null when the check service is unavailable."""
+    with (
+        patch("saturnzap.node._require_node", return_value=mock_node),
+        patch("saturnzap.node._detect_external_ip", return_value="1.2.3.4"),
+        patch("saturnzap.node.check_port_reachable", return_value=None),
+    ):
+        result = runner.invoke(app, ["connect-info", "--check"])
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["reachable"] is None
+
+
+def test_connect_info_without_check_no_reachable(mock_node):
+    """Without --check, reachable field should not be present."""
+    with (
+        patch("saturnzap.node._require_node", return_value=mock_node),
+        patch("saturnzap.node._detect_external_ip", return_value="1.2.3.4"),
+    ):
+        result = runner.invoke(app, ["connect-info"])
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert "reachable" not in data
+
+
+# ── setup --auto next_steps and firewall ─────────────────────────
+
+
+def test_setup_auto_includes_next_steps(monkeypatch, mock_node):
+    monkeypatch.setenv("SZ_PASSPHRASE", "testpw")
+    mock_node.onchain_payment.return_value.new_address.return_value = "tb1qaddr"
+
+    with (
+        patch("saturnzap.node.build_node", return_value=mock_node),
+        patch("saturnzap.node.open_firewall_port", return_value="opened"),
+        patch("saturnzap.node._detect_external_ip", return_value="1.2.3.4"),
+        patch("saturnzap.liquidity.request_inbound", return_value={"channel": "info"}),
+    ):
+        result = runner.invoke(app, ["setup", "--auto"])
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert "next_steps" in data
+    assert isinstance(data["next_steps"], list)
+    assert len(data["next_steps"]) >= 2
+    assert any("tb1qaddr" in s for s in data["next_steps"])
+
+
+def test_setup_auto_includes_firewall_step(monkeypatch, mock_node):
+    monkeypatch.setenv("SZ_PASSPHRASE", "testpw")
+    mock_node.onchain_payment.return_value.new_address.return_value = "tb1qaddr"
+
+    with (
+        patch("saturnzap.node.build_node", return_value=mock_node),
+        patch("saturnzap.node.open_firewall_port", return_value="ufw_inactive"),
+        patch("saturnzap.node._detect_external_ip", return_value="1.2.3.4"),
+        patch("saturnzap.liquidity.request_inbound", return_value={"channel": "info"}),
+    ):
+        result = runner.invoke(app, ["setup", "--auto"])
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    fw_step = next(s for s in data["steps"] if s["step"] == "firewall")
+    assert fw_step["status"] == "ufw_inactive"
+
+
+def test_setup_auto_includes_connect_info_step(monkeypatch, mock_node):
+    monkeypatch.setenv("SZ_PASSPHRASE", "testpw")
+    mock_node.onchain_payment.return_value.new_address.return_value = "tb1qaddr"
+
+    with (
+        patch("saturnzap.node.build_node", return_value=mock_node),
+        patch("saturnzap.node.open_firewall_port", return_value="opened"),
+        patch("saturnzap.node._detect_external_ip", return_value="5.6.7.8"),
+        patch("saturnzap.liquidity.request_inbound", return_value={"channel": "info"}),
+    ):
+        result = runner.invoke(app, ["setup", "--auto"])
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    ci_step = next(s for s in data["steps"] if s["step"] == "connect_info")
+    assert ci_step["host"] == "5.6.7.8"
+    assert "uri" in ci_step

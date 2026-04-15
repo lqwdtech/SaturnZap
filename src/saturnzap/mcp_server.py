@@ -148,11 +148,20 @@ def get_status() -> dict[str, Any]:
 
 
 @mcp.tool()
-def get_connect_info() -> dict[str, Any]:
-    """Return node connection URI (pubkey@host:port) for sharing."""
+def get_connect_info(check: bool = False) -> dict[str, Any]:
+    """Return node connection URI (pubkey@host:port) for sharing.
+
+    Args:
+        check: If True, test if the Lightning port is reachable from the internet.
+    """
     from saturnzap import node
 
-    return node.get_connect_info()
+    info = node.get_connect_info()
+    if check:
+        info["reachable"] = node.check_port_reachable(
+            host=info.get("host"), port=info.get("port"),
+        )
+    return info
 
 
 @mcp.tool()

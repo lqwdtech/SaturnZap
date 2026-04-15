@@ -68,65 +68,58 @@ Or add it to a `.env` file in your working directory:
 SZ_PASSPHRASE=your-secure-passphrase
 ```
 
-### 2. Initialize the wallet
+### 2. Run setup
+
+For the fastest path to a working node, use `--auto`:
 
 ```bash
-sz init
+sz setup --auto
 ```
 
-Output:
+This does everything in one command:
+- Generates a BIP39 seed and encrypts it
+- Starts the Lightning node
+- Opens the firewall port (if UFW is active)
+- Generates a receive address
+- Detects your external IP and builds a connection URI
+- Attempts to open a channel to LQWD (skipped if wallet is unfunded)
 
-```json
-{
-  "status": "ok",
-  "network": "bitcoin",
-  "mnemonic": "abandon ability able about above ... (24 words)",
-  "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b...",
-  "seed_path": "/home/agent/.local/share/saturnzap/seed.enc",
-  "message": "Wallet initialized. WRITE DOWN YOUR MNEMONIC AND STORE IT SAFELY."
-}
-```
-
-> **Important:** Back up your 24-word mnemonic. It is the only way to recover your
-> funds if the seed file is lost.
+> **Important:** Back up your 24-word mnemonic from the output. It is the only way
+> to recover your funds if the seed file is lost.
 
 ### 3. Fund the wallet
 
-Get a receive address:
-
-```bash
-sz address
-```
-
-```json
-{
-  "status": "ok",
-  "address": "bc1q...",
-  "network": "bitcoin"
-}
-```
-
-Send bitcoin to this address to fund your wallet.
-
-> **Testing with signet?** Use `sz --network signet address` and a faucet like
-> [signetfaucet.com](https://signetfaucet.com) or
-> [alt.signetfaucet.com](https://alt.signetfaucet.com) to get free test coins.
-
-Check your balance (wait for chain sync):
+Send bitcoin to the address shown in the setup output. Check your balance:
 
 ```bash
 sz balance
 ```
 
-### 4. Open a channel
+> **Testing with signet?** Use `sz --network signet setup --auto` and a faucet like
+> [signetfaucet.com](https://signetfaucet.com) or
+> [alt.signetfaucet.com](https://alt.signetfaucet.com) to get free test coins.
 
-Open a channel to any Lightning node:
+### 4. Complete setup
+
+After funding arrives, run setup again to open a channel:
 
 ```bash
-sz channels open --peer <pubkey>@<host>:9735 --amount-sats 100000
+sz setup --auto
 ```
 
-Or use the LQWD LSP (auto-selects the nearest of 18 global nodes):
+This time it skips initialization (already done) and opens a channel to the nearest
+LQWD node with your on-chain funds.
+
+### 5. Verify connectivity
+
+Check that peers can reach your node:
+
+```bash
+sz connect-info --check
+```
+
+This returns your connection URI and tests if the Lightning port is open from the
+internet.
 
 ```bash
 sz channels open --lsp lqwd --amount-sats 100000

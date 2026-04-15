@@ -132,6 +132,31 @@ running multiple networks on the same host:
 | `testnet` | 9736 |
 | `bitcoin` | 9737 |
 
+### Firewall
+
+SaturnZap automatically opens the Lightning port in UFW when starting a daemon
+(`sz start --daemon`), running `sz setup --auto`, or installing the systemd service
+(`sz service install`). This is required for peers to connect to your node.
+
+If UFW is not active or not installed, no firewall changes are made — the port is
+assumed to be open.
+
+To manually open the port:
+
+```bash
+sudo ufw allow 9737/tcp comment "SaturnZap Lightning"
+```
+
+To verify your node is reachable from the internet:
+
+```bash
+sz connect-info --check
+```
+
+This detects your external IP and probes the port from an external service. The
+`"reachable"` field in the JSON output will be `true`, `false`, or `null` (if the
+check service is unavailable).
+
 ---
 
 ## Esplora Fallback Chain

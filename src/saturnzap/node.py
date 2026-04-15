@@ -199,6 +199,120 @@ def _detect_external_ip() -> str | None:
     return None
 
 
+def open_firewall_port(port: int | None = None) -> str:
+    """Open the Lightning P2P port in UFW if it's active.
+
+    Returns a status string:
+      "opened"           — rule added successfully
+      "already_open"     — rule already exists
+      "ufw_inactive"     — UFW is installed but not enabled
+      "ufw_not_found"    — UFW is not installed
+      "not_linux"        — not running on Linux
+      "permission_denied" — need root/sudo to modify UFW
+      "error"            — unexpected failure
+    """
+    import platform
+    import shutil
+    import subprocess  # noqa: S404
+
+    if platform.system() != "Linux":
+        return "not_linux"
+
+    ufw = shutil.which("ufw")
+    if not ufw:
+        return "ufw_not_found"
+
+    if port is None:
+        port = DEFAULT_LISTEN_PORTS.get(get_network(), 9735)
+
+    # Check if UFW is active
+    try:
+        result = subprocess.run(  # noqa: S603
+            [ufw, "status"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except PermissionError:
+        return "permission_denied"
+    except (OSError, subprocess.TimeoutExpired):
+        return "error"
+
+    if "inactive" in result.stdout.lower():
+        return "ufw_inactive"
+
+    # Check if rule already exists
+    if f"{port}/tcp" in result.stdout:
+        return "already_open"
+
+    # Add the rule
+    try:
+        add = subprocess.run(  # noqa: S603
+            [ufw, "allow", f"{port}/tcp"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except PermissionError:
+        return "permission_denied"
+    except (OSError, subprocess.TimeoutExpired):
+        return "error"
+
+    if add.returncode == 0:
+        return "opened"
+    return "error"
+
+
+def check_port_reachable(
+    host: str | None = None, port: int | None = None,
+) -> bool | None:
+    """Best-effort check if this node's Lightning port is reachable from the internet.
+
+    Uses an external port-check API. Returns True/False, or None if the check
+    itself failed (service down, no internet, etc.).
+    """
+    import httpx
+
+    if host is None:
+        host = _detect_external_ip()
+    if host is None:
+        return None
+    if port is None:
+        port = DEFAULT_LISTEN_PORTS.get(get_network(), 9735)
+
+    # Try multiple external port-check services
+    try:
+        resp = httpx.get(
+            f"https://portchecker.io/api/v1/query?host={host}&ports={port}",
+            timeout=5.0,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            # portchecker.io returns {"check": [{"port": N, "status": true/false}]}
+            checks = data.get("check", [])
+            if checks:
+                return checks[0].get("status")
+    except (httpx.HTTPError, OSError, ValueError, KeyError):
+        pass
+
+    # Fallback: try open-ports.com
+    try:
+        resp = httpx.get(
+            f"https://www.whatismyip.com/port-scanner/port/{port}/",
+            timeout=5.0,
+            headers={"User-Agent": "SaturnZap/0.1"},
+        )
+        if resp.status_code == 200:
+            if "open" in resp.text.lower():
+                return True
+            if "closed" in resp.text.lower():
+                return False
+    except (httpx.HTTPError, OSError):
+        pass
+
+    return None
+
+
 # ── Helpers ──────────────────────────────────────────────────────
 
 
