@@ -405,9 +405,14 @@ def test_list_channels(mock_ldk_node):
 
 def test_open_channel(mock_ldk_node):
     mock_ldk_node.open_channel.return_value = "ucid001"
+    chan = SimpleNamespace(channel_id="ucid001")
+    mock_ldk_node.list_channels.return_value = [chan]
     node._node = mock_ldk_node
 
-    with patch("saturnzap.node._require_node", return_value=mock_ldk_node):
+    with (
+        patch("saturnzap.node._require_node", return_value=mock_ldk_node),
+        patch("time.sleep"),
+    ):
         result = node.open_channel("02peer", "1.2.3.4:9735", 100_000)
 
     assert result == "ucid001"
@@ -415,12 +420,71 @@ def test_open_channel(mock_ldk_node):
 
 def test_open_announced_channel(mock_ldk_node):
     mock_ldk_node.open_announced_channel.return_value = "ucid002"
+    chan = SimpleNamespace(channel_id="ucid002")
+    mock_ldk_node.list_channels.return_value = [chan]
     node._node = mock_ldk_node
 
-    with patch("saturnzap.node._require_node", return_value=mock_ldk_node):
+    with (
+        patch("saturnzap.node._require_node", return_value=mock_ldk_node),
+        patch("time.sleep"),
+    ):
         result = node.open_channel("02peer", "1.2.3.4:9735", 100_000, announce=True)
 
     assert result == "ucid002"
+
+
+def test_open_channel_rejected_with_reason(mock_ldk_node, tmp_path):
+    """When the peer rejects the channel, surface the rejection reason."""
+    mock_ldk_node.open_channel.return_value = "ucid003"
+    mock_ldk_node.list_channels.return_value = []  # Channel vanished
+    node._node = mock_ldk_node
+
+    # Write a fake LDK log with a rejection reason
+    ldk_dir = tmp_path / "ldk"
+    ldk_dir.mkdir()
+    log_file = ldk_dir / "ldk_node.log"
+    log_file.write_text(
+        "2026-04-15 22:20:48.005 ERROR [lightning::ln::channelmanager:4635] "
+        "Closed channel cf018e due to close-required error: "
+        "Channel closed because counterparty force-closed with message: "
+        "chan size of 0.00150000 BTC is below min chan size of 0.02000000 BTC\n"
+    )
+
+    from saturnzap.output import CommandError
+
+    with (
+        patch("saturnzap.node._require_node", return_value=mock_ldk_node),
+        patch("time.sleep"),
+        patch("saturnzap.node._node_storage", return_value=str(ldk_dir)),
+        pytest.raises(CommandError) as exc_info,
+    ):
+        node.open_channel("02peer", "1.2.3.4:9735", 150_000)
+
+    assert exc_info.value.error_code == "CHANNEL_REJECTED"
+    assert "min chan size" in exc_info.value.error_message
+
+
+def test_open_channel_rejected_no_log(mock_ldk_node, tmp_path):
+    """When the peer rejects but no log reason is found, give a generic error."""
+    mock_ldk_node.open_channel.return_value = "ucid004"
+    mock_ldk_node.list_channels.return_value = []  # Channel vanished
+    node._node = mock_ldk_node
+
+    ldk_dir = tmp_path / "ldk"
+    ldk_dir.mkdir()
+
+    from saturnzap.output import CommandError
+
+    with (
+        patch("saturnzap.node._require_node", return_value=mock_ldk_node),
+        patch("time.sleep"),
+        patch("saturnzap.node._node_storage", return_value=str(ldk_dir)),
+        pytest.raises(CommandError) as exc_info,
+    ):
+        node.open_channel("02peer", "1.2.3.4:9735", 150_000)
+
+    assert exc_info.value.error_code == "CHANNEL_REJECTED"
+    assert "Check" in exc_info.value.error_message
 
 
 # ── close_channel / force_close ──────────────────────────────────

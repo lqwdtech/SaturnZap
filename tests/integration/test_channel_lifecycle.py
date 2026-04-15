@@ -35,9 +35,15 @@ def test_channel_open_wait_list_close(mock_node):
     # Step 1: Open channel
     mock_node.connect.return_value = None
     mock_node.open_channel.return_value = "user_ch_01"
+    # Channel must survive the post-open handshake check
+    ch_pending = _make_channel("user_ch_01", is_usable=False, is_ready=False)
+    mock_node.list_channels.return_value = [ch_pending]
 
     peer = "03" + "cd" * 32 + "@1.2.3.4:9735"
-    with patch("saturnzap.node._require_node", return_value=mock_node):
+    with (
+        patch("saturnzap.node._require_node", return_value=mock_node),
+        patch("time.sleep"),
+    ):
         result = runner.invoke(app, [
             "--network", "signet",
             "channels", "open",

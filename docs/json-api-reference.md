@@ -505,6 +505,7 @@ if "warnings" in result:
 | `INVALID_NETWORK` | Unknown network name |
 | `PAYMENT_FAILED` | Lightning payment failed |
 | `CHANNEL_CREATION_FAILED` | Channel open failed |
+| `CHANNEL_REJECTED` | Peer rejected the channel (e.g. below minimum size) |
 | `EXCEEDS_MAX_SATS` | Invoice amount exceeds spending cap |
 | `L402_PARSE_FAILED` | Could not parse L402/LSAT challenge |
 | `L402_NO_CHALLENGE` | HTTP 402 but no WWW-Authenticate header |

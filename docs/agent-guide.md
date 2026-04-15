@@ -127,6 +127,8 @@ Payment failed?
     └── Check `sz status` — is the node synced? Are peers connected?
 
 Channel issues?
+├── code: CHANNEL_REJECTED
+│   └── Peer rejected the channel — common cause: amount below peer's minimum (e.g. LQWD requires ≥2M sats)
 ├── code: CHANNEL_WAIT_TIMEOUT
 │   └── Channel peer may be offline — check `sz peers list`
 ├── Health score < 20 (critical)

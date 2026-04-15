@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from ldk_node import Builder, Network, Node, default_config
 
 from saturnzap.config import (
@@ -527,6 +529,38 @@ def wait_channel_ready(
     }
 
 
+def _parse_channel_rejection() -> str | None:
+    """Read the LDK log for the most recent channel close reason.
+
+    Returns the peer's rejection message, or None if not found.
+    """
+    log_path = Path(_node_storage()) / "ldk_node.log"
+    if not log_path.exists():
+        return None
+    try:
+        # Read last 8KB — rejections appear within seconds of open_channel
+        size = log_path.stat().st_size
+        with log_path.open("rb") as f:
+            f.seek(max(0, size - 8192))
+            tail = f.read().decode("utf-8", errors="replace")
+    except OSError:
+        return None
+
+    # LDK logs close reasons in two forms:
+    # ERROR: "Closed channel <id> due to close-required error: <reason>"
+    # INFO:  "Channel <id> closed due to: <reason>"
+    for line in reversed(tail.splitlines()):
+        if "closed due to" in line.lower() or "close-required" in line.lower():
+            for marker in [
+                "close-required error: ",
+                "closed due to: ",
+            ]:
+                idx = line.lower().find(marker)
+                if idx != -1:
+                    return line[idx + len(marker):].strip()
+    return None
+
+
 def open_channel(
     node_id: str,
     address: str,
@@ -535,7 +569,12 @@ def open_channel(
     push_msat: int | None = None,
     announce: bool = False,
 ) -> str:
-    """Open a channel to a peer. Returns the user_channel_id."""
+    """Open a channel to a peer. Returns the user_channel_id.
+
+    Waits briefly after sending the open request to detect immediate
+    rejections (e.g. channel too small).  Raises ``CommandError`` with
+    code ``CHANNEL_REJECTED`` if the peer rejects the channel.
+    """
     if _use_ipc():
         return _ipc(  # type: ignore[return-value]
             "open_channel",
@@ -551,7 +590,35 @@ def open_channel(
         ucid = node.open_channel(
             node_id, address, amount_sats, push_msat, None,
         )
-    return str(ucid)
+    ucid_str = str(ucid)
+
+    # Wait briefly for the peer's accept/reject response.
+    import time
+    time.sleep(3)
+
+    # Check if the channel survived the handshake.
+    channels = node.list_channels()
+    channel_ids = [str(c.channel_id) for c in channels]
+    if ucid_str not in channel_ids:
+        # Channel vanished — look for the reason in the LDK log.
+        # The channel_id in the log is the funding channel id (hex),
+        # which differs from user_channel_id. Search all recent closes.
+        reason = _parse_channel_rejection()
+        if reason:
+            from saturnzap.output import CommandError
+            raise CommandError(
+                "CHANNEL_REJECTED",
+                f"Peer rejected the channel: {reason}",
+            )
+        # No specific reason found — still report the failure.
+        from saturnzap.output import CommandError
+        raise CommandError(
+            "CHANNEL_REJECTED",
+            "Peer rejected the channel. Check 'sz status' and LDK logs "
+            "for details.",
+        )
+
+    return ucid_str
 
 
 def close_channel(channel_id: str, counterparty_node_id: str) -> None:
