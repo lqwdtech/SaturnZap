@@ -51,8 +51,23 @@ def save_encrypted(mnemonic: str, passphrase: str) -> Path:
     """Encrypt *mnemonic* with *passphrase* and write to disk.
 
     Returns the path to the encrypted seed file.
+
+    Enforces a minimum passphrase length (12 chars) to resist offline
+    brute-force against the PBKDF2 key. Override with
+    ``SZ_ALLOW_WEAK_PASSPHRASE=1`` for testing.
     """
     import os
+
+    min_len = 12
+    if len(passphrase) < min_len and os.environ.get(
+        "SZ_ALLOW_WEAK_PASSPHRASE", ""
+    ) != "1":
+        from saturnzap import output
+        output.error(
+            "WEAK_PASSPHRASE",
+            f"Passphrase must be at least {min_len} characters. "
+            "Set SZ_ALLOW_WEAK_PASSPHRASE=1 to override (not recommended).",
+        )
 
     salt = os.urandom(16)
     key = _derive_key(passphrase, salt)

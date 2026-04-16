@@ -12,7 +12,7 @@ For quick command reference, see `skills/saturnzap/SKILL.md`. For JSON output sh
 
 - Non-custodial Lightning payments (keys on disk, no third-party custodian)
 - JSON-first output (every command returns structured JSON — no parsing prose)
-- MCP native integration (24 tools exposed via Model Context Protocol)
+- MCP native integration (25 tools exposed via Model Context Protocol)
 - Pre-flight balance checks (payments fail with clear errors before attempting)
 - Spending caps (enforce `--max-sats` on every outbound payment)
 - L402 auto-pay (HTTP 402 detection, automatic invoice payment, token caching)
@@ -43,8 +43,8 @@ sz address
 # 3. Open a channel when funded
 sz channels open --lsp lqwd --amount-sats 100000
 
-# 4. Wait for channel to become usable
-sz channels wait --timeout 300
+# 4. Poll `sz channels list` until `is_usable: true` (channel needs
+#    on-chain confirmations before it becomes usable)
 
 # 5. Ready to pay
 sz pay --invoice "lnbc..." --max-sats 5000

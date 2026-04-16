@@ -532,32 +532,36 @@ def wait_channel_ready(
 def _parse_channel_rejection() -> str | None:
     """Read the LDK log for the most recent channel close reason.
 
-    Returns the peer's rejection message, or None if not found.
+    Returns the peer's rejection message, or None if not found or log unreadable.
+    Never raises — failure to parse should not mask the original error context.
     """
-    log_path = Path(_node_storage()) / "ldk_node.log"
-    if not log_path.exists():
-        return None
     try:
+        log_path = Path(_node_storage()) / "ldk_node.log"
+        if not log_path.exists():
+            return None
         # Read last 8KB — rejections appear within seconds of open_channel
         size = log_path.stat().st_size
         with log_path.open("rb") as f:
             f.seek(max(0, size - 8192))
             tail = f.read().decode("utf-8", errors="replace")
-    except OSError:
+    except (OSError, ValueError):
         return None
 
     # LDK logs close reasons in two forms:
     # ERROR: "Closed channel <id> due to close-required error: <reason>"
     # INFO:  "Channel <id> closed due to: <reason>"
-    for line in reversed(tail.splitlines()):
-        if "closed due to" in line.lower() or "close-required" in line.lower():
-            for marker in [
-                "close-required error: ",
-                "closed due to: ",
-            ]:
-                idx = line.lower().find(marker)
-                if idx != -1:
-                    return line[idx + len(marker):].strip()
+    try:
+        for line in reversed(tail.splitlines()):
+            if "closed due to" in line.lower() or "close-required" in line.lower():
+                for marker in [
+                    "close-required error: ",
+                    "closed due to: ",
+                ]:
+                    idx = line.lower().find(marker)
+                    if idx != -1:
+                        return line[idx + len(marker):].strip()
+    except Exception:  # noqa: BLE001
+        return None
     return None
 
 
@@ -592,26 +596,37 @@ def open_channel(
         )
     ucid_str = str(ucid)
 
-    # Wait briefly for the peer's accept/reject response.
+    # Poll for up to 3 seconds to detect an immediate rejection.
+    # The channel either appears in list_channels() (accepted) or never shows
+    # up (rejected). We poll every 250ms so fast rejections are caught quickly
+    # and slow accepts still succeed.
     import time
-    time.sleep(3)
+    deadline = time.monotonic() + 3.0
+    found = False
+    while time.monotonic() < deadline:
+        try:
+            channel_ids = [str(c.channel_id) for c in node.list_channels()]
+        except Exception:  # noqa: BLE001
+            # If list_channels fails transiently, treat as "still pending"
+            # and keep polling; we'll fall through to the not-found path if
+            # the final poll also misses.
+            channel_ids = []
+        if ucid_str in channel_ids:
+            found = True
+            break
+        time.sleep(0.25)
 
-    # Check if the channel survived the handshake.
-    channels = node.list_channels()
-    channel_ids = [str(c.channel_id) for c in channels]
-    if ucid_str not in channel_ids:
+    if not found:
         # Channel vanished — look for the reason in the LDK log.
         # The channel_id in the log is the funding channel id (hex),
         # which differs from user_channel_id. Search all recent closes.
         reason = _parse_channel_rejection()
+        from saturnzap.output import CommandError
         if reason:
-            from saturnzap.output import CommandError
             raise CommandError(
                 "CHANNEL_REJECTED",
                 f"Peer rejected the channel: {reason}",
             )
-        # No specific reason found — still report the failure.
-        from saturnzap.output import CommandError
         raise CommandError(
             "CHANNEL_REJECTED",
             "Peer rejected the channel. Check 'sz status' and LDK logs "

@@ -129,7 +129,7 @@ internet.
 sz channels open --lsp lqwd --amount-sats 100000
 ```
 
-### 5. Make a payment
+### 6. Make a payment
 
 Pay a BOLT11 invoice:
 
@@ -149,7 +149,7 @@ On mainnet, spending commands require confirmation (or `--yes` to skip):
 sz pay --invoice lnbc1... --yes
 ```
 
-### 6. Fetch an L402 resource
+### 7. Fetch an L402 resource
 
 SaturnZap auto-detects HTTP 402 responses, pays the embedded Lightning invoice, and
 retries the request:

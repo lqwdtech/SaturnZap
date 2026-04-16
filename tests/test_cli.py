@@ -303,7 +303,7 @@ def test_invoice_wait_flag(mock_node):
     mock_node.bolt11_payment.return_value.receive.return_value = mock_invoice
 
     with (
-        patch("saturnzap.node._require_node", return_value=mock_node),
+        patch("saturnzap.payments._require_node", return_value=mock_node),
         patch(
             "saturnzap.payments.wait_for_payment",
             return_value={"paid": True, "received_sats": 100, "waited_seconds": 5},

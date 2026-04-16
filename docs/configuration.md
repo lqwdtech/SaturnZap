@@ -61,7 +61,9 @@ auto_open_enabled = false
 | `SZ_PRETTY` | Set to `1` for pretty-printed JSON output. | `0` |
 | `SZ_REGION` | Force a specific LQWD region (e.g. `JP`, `CA`, `US`). | Auto-detect from timezone |
 | `SZ_MCP_MAX_SPEND_SATS` | Global per-request spending cap for MCP `l402_fetch` tool. | No limit |
+| `SZ_CLI_MAX_SPEND_SATS` | Default spending cap for `sz fetch` when `--max-sats` is not supplied. | No limit |
 | `SZ_MAINNET_CONFIRM` | Set to `yes` to skip mainnet safety confirmation prompts. | — (prompts) |
+| `SZ_ALLOW_WEAK_PASSPHRASE` | Set to `1` to bypass the 12-character minimum passphrase check (testing only). | — (enforced) |
 | `XDG_DATA_HOME` | Override the data directory base path. | `~/.local/share` |
 | `XDG_CONFIG_HOME` | Override the config directory base path. | `~/.config` |
 

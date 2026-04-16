@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import os
 from contextlib import asynccontextmanager
 from typing import Any
@@ -36,12 +37,53 @@ async def _lifespan(server: FastMCP):  # noqa: ARG001
 
 mcp = FastMCP("saturnzap", lifespan=_lifespan)
 
+
+def _tool(*args, **kwargs):
+    """Wrap ``mcp.tool()`` so every tool catches ``CommandError`` / ``SystemExit``.
+
+    Without this, ``output.error()`` raises ``CommandError`` (a ``SystemExit``
+    subclass) which is a ``BaseException`` and escapes FastMCP's exception
+    handler, terminating the MCP server. Convert to an error dict instead.
+    """
+    from saturnzap.output import CommandError
+
+    decorator = mcp.tool(*args, **kwargs)
+
+    def wrap(fn):
+        @functools.wraps(fn)
+        def safe(*a, **kw):
+            try:
+                return fn(*a, **kw)
+            except CommandError as exc:
+                return {
+                    "status": "error",
+                    "code": exc.error_code,
+                    "message": exc.error_message,
+                }
+            except SystemExit as exc:
+                return {
+                    "status": "error",
+                    "code": "COMMAND_ERROR",
+                    "message": f"Command exited with code {exc.code}",
+                }
+            except Exception as exc:  # noqa: BLE001
+                return {
+                    "status": "error",
+                    "code": "INTERNAL_ERROR",
+                    "message": str(exc),
+                }
+
+        return decorator(safe)
+
+    return wrap
+
+
 # ---------------------------------------------------------------------------
 # Lifecycle tools
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@_tool()
 def is_initialized() -> dict[str, Any]:
     """Check whether the SaturnZap wallet has been initialized."""
     from saturnzap import keystore
@@ -49,7 +91,7 @@ def is_initialized() -> dict[str, Any]:
     return {"initialized": keystore.is_initialized()}
 
 
-@mcp.tool()
+@_tool()
 def init_wallet() -> dict[str, Any]:
     """Generate a new BIP39 seed and start the Lightning node.
 
@@ -75,7 +117,7 @@ def init_wallet() -> dict[str, Any]:
     }
 
 
-@mcp.tool()
+@_tool()
 def setup_wallet(
     auto: bool = True,
     region: str | None = None,
@@ -139,7 +181,7 @@ def setup_wallet(
     }
 
 
-@mcp.tool()
+@_tool()
 def get_status() -> dict[str, Any]:
     """Return node pubkey, sync state, block height, and timestamps."""
     from saturnzap import node
@@ -147,7 +189,7 @@ def get_status() -> dict[str, Any]:
     return node.get_status()
 
 
-@mcp.tool()
+@_tool()
 def get_connect_info(check: bool = False) -> dict[str, Any]:
     """Return node connection URI (pubkey@host:port) for sharing.
 
@@ -164,7 +206,7 @@ def get_connect_info(check: bool = False) -> dict[str, Any]:
     return info
 
 
-@mcp.tool()
+@_tool()
 def stop_node() -> dict[str, str]:
     """Stop the Lightning node gracefully."""
     from saturnzap import node
@@ -178,7 +220,7 @@ def stop_node() -> dict[str, str]:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@_tool()
 def new_onchain_address() -> dict[str, str]:
     """Generate a new on-chain receive address (for funding the wallet)."""
     from saturnzap import node
@@ -188,7 +230,7 @@ def new_onchain_address() -> dict[str, str]:
     return {"address": addr, "network": get_network()}
 
 
-@mcp.tool()
+@_tool()
 def get_balance() -> dict[str, Any]:
     """Return on-chain and Lightning balances with per-channel breakdown."""
     from saturnzap import node
@@ -196,7 +238,7 @@ def get_balance() -> dict[str, Any]:
     return node.get_balance()
 
 
-@mcp.tool()
+@_tool()
 def send_onchain(address: str, amount_sats: int | None = None) -> dict[str, Any]:
     """Send sats on-chain to an address.
 
@@ -220,7 +262,7 @@ def send_onchain(address: str, amount_sats: int | None = None) -> dict[str, Any]
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@_tool()
 def connect_peer(node_id: str, address: str) -> dict[str, str]:
     """Connect to a Lightning peer.
 
@@ -235,7 +277,7 @@ def connect_peer(node_id: str, address: str) -> dict[str, str]:
             "message": "Peer added."}
 
 
-@mcp.tool()
+@_tool()
 def disconnect_peer(node_id: str) -> dict[str, str]:
     """Disconnect from a Lightning peer.
 
@@ -248,7 +290,7 @@ def disconnect_peer(node_id: str) -> dict[str, str]:
     return {"status": "ok", "node_id": node_id, "message": "Peer removed."}
 
 
-@mcp.tool()
+@_tool()
 def list_peers() -> dict[str, Any]:
     """List all connected and persisted peers."""
     from saturnzap import node
@@ -261,7 +303,7 @@ def list_peers() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@_tool()
 def list_channels() -> dict[str, Any]:
     """List all Lightning channels with capacity and readiness info."""
     from saturnzap import node
@@ -269,7 +311,7 @@ def list_channels() -> dict[str, Any]:
     return {"channels": node.list_channels()}
 
 
-@mcp.tool()
+@_tool()
 def open_channel(
     node_id: str,
     address: str,
@@ -292,7 +334,7 @@ def open_channel(
             "message": "Channel open initiated."}
 
 
-@mcp.tool()
+@_tool()
 def close_channel(
     channel_id: str,
     counterparty_node_id: str,
@@ -321,7 +363,7 @@ def close_channel(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@_tool()
 def create_invoice(
     amount_sats: int = 0,
     memo: str = "",
@@ -341,7 +383,7 @@ def create_invoice(
     return payments.create_variable_invoice(memo, expiry_secs)
 
 
-@mcp.tool()
+@_tool()
 def pay_invoice(invoice: str, max_sats: int | None = None) -> dict[str, Any]:
     """Pay a BOLT11 Lightning invoice.
 
@@ -354,7 +396,7 @@ def pay_invoice(invoice: str, max_sats: int | None = None) -> dict[str, Any]:
     return payments.pay_invoice(invoice, max_sats)
 
 
-@mcp.tool()
+@_tool()
 def keysend(pubkey: str, amount_sats: int) -> dict[str, Any]:
     """Send a spontaneous keysend payment.
 
@@ -367,7 +409,7 @@ def keysend(pubkey: str, amount_sats: int) -> dict[str, Any]:
     return payments.keysend(pubkey, amount_sats)
 
 
-@mcp.tool()
+@_tool()
 def list_transactions(limit: int = 20) -> dict[str, Any]:
     """List recent payment history.
 
@@ -385,7 +427,7 @@ def list_transactions(limit: int = 20) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@_tool()
 def l402_fetch(
     url: str,
     method: str = "GET",
@@ -438,7 +480,7 @@ def l402_fetch(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@_tool()
 def liquidity_status() -> dict[str, Any]:
     """Return channel health scores and actionable recommendations."""
     from saturnzap import liquidity
@@ -446,7 +488,7 @@ def liquidity_status() -> dict[str, Any]:
     return liquidity.get_status()
 
 
-@mcp.tool()
+@_tool()
 def request_inbound(
     amount_sats: int,
     region: str | None = None,
@@ -463,7 +505,7 @@ def request_inbound(
     return liquidity.request_inbound(amount_sats, region)
 
 
-@mcp.tool()
+@_tool()
 def list_lqwd_nodes(region: str | None = None) -> dict[str, Any]:
     """List available LQWD Lightning nodes.
 
@@ -481,7 +523,7 @@ def list_lqwd_nodes(region: str | None = None) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@_tool()
 def backup_wallet(output_path: str = "saturnzap-backup.json") -> dict[str, Any]:
     """Create an encrypted backup of the wallet.
 
@@ -496,7 +538,7 @@ def backup_wallet(output_path: str = "saturnzap-backup.json") -> dict[str, Any]:
     return backup.backup(Path(output_path), passphrase)
 
 
-@mcp.tool()
+@_tool()
 def restore_wallet(input_path: str) -> dict[str, Any]:
     """Restore the wallet from an encrypted backup.
 

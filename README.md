@@ -626,7 +626,7 @@ Inbound liquidity requests via LQWD. Geography-aware peer selection across 18 re
 
 `pip install saturnzap` / `uv add saturnzap` / `sz mcp`
 
-MCP server with 20 tools. Esplora fallback chain. GitHub Actions CI/CD.
+MCP server with 25 tools. Esplora fallback chain. GitHub Actions CI/CD.
 PyPI packaging. OpenClaw skill definition. Security scanner (Grade A+).
 
 ### Phase 7 — Mainnet Support ✅

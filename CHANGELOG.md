@@ -28,10 +28,13 @@ First public release. CLI-first, non-custodial Lightning wallet for AI agents.
 - LQWD node directory — 18 nodes across 18 countries, timezone-based auto-select
 
 **MCP Server (Phase 5)**
-- `sz mcp` / `sz-mcp` — FastMCP stdio server exposing 20 tools
+- `sz mcp` / `sz-mcp` — FastMCP stdio server exposing 25 tools
 - Works with Claude Desktop, Cursor, VS Code (GitHub Copilot), and any MCP client
 - Async lifespan: starts LDK node on boot, stops on shutdown
 - `SZ_MCP_MAX_SPEND_SATS` global spending cap
+- Tools include: `setup_wallet`, `send_onchain`, `backup_wallet`, `restore_wallet`,
+  `list_lqwd_nodes`, plus full lifecycle, wallet, peers, channels, payments, L402,
+  and liquidity coverage
 
 **Mainnet & IPC (Phase 6)**
 - `--network signet|testnet|bitcoin` — full network switching
@@ -40,7 +43,7 @@ First public release. CLI-first, non-custodial Lightning wallet for AI agents.
 - Per-network Lightning listen ports (signet=9735, testnet=9736, bitcoin=9737)
 - `sz start --daemon` — Unix Domain Socket IPC daemon
 - CLI and MCP auto-detect daemon, route through IPC transparently
-- 22 IPC methods, newline-delimited JSON, `threading.Lock` serialization
+- 23 IPC methods, newline-delimited JSON, `threading.Lock` serialization
 
 **Infrastructure**
 - Esplora fallback chain — probes multiple endpoints, uses first healthy one
@@ -48,7 +51,7 @@ First public release. CLI-first, non-custodial Lightning wallet for AI agents.
 - `sz service install|uninstall|status` — systemd service generator
 - `sz setup --auto` — idempotent first-run setup
 - JSON-first output: `output.ok()` / `output.error()` on all commands
-- 324 unit tests, 24 live/mainnet tests
+- 415 tests (389 unit + 26 live/mainnet)
 - CI pipeline (ruff + pytest + build) on push/PR
 - PyPI publish via trusted publisher on version tags
 - Security scanning (ruff, bandit, pip-audit, detect-secrets) in pre-commit

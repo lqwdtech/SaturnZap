@@ -142,6 +142,27 @@ def restore(input_path: Path, passphrase: str) -> dict:
     except (InvalidToken, KeyError):
         output.error("BAD_PASSPHRASE", "Incorrect passphrase or corrupt backup.")
 
+    # Validate decrypted payload schema. Fernet already authenticates
+    # ciphertext (HMAC-SHA256), so corruption is caught above. These checks
+    # defend against a malformed-but-valid-looking payload after decryption.
+    if not isinstance(payload, dict):
+        output.error("INVALID_BACKUP", "Backup payload is not a JSON object.")
+    mnemonic = payload.get("mnemonic")
+    if not isinstance(mnemonic, str):
+        output.error("INVALID_BACKUP", "Backup missing mnemonic field.")
+    word_count = len(mnemonic.split())
+    if word_count not in (12, 15, 18, 21, 24):
+        output.error(
+            "INVALID_BACKUP",
+            f"Backup mnemonic has {word_count} words; expected 12, 15, 18, 21, or 24.",
+        )
+    payload_version = payload.get("format_version")
+    if not isinstance(payload_version, int) or payload_version > FORMAT_VERSION:
+        output.error(
+            "INVALID_BACKUP",
+            "Backup payload has invalid format_version field.",
+        )
+
     # Check if wallet already exists
     if keystore.is_initialized():
         output.error(
@@ -150,7 +171,6 @@ def restore(input_path: Path, passphrase: str) -> dict:
         )
 
     # Restore mnemonic
-    mnemonic = payload["mnemonic"]
     keystore.save_encrypted(mnemonic, passphrase)
 
     # Restore L402 token cache

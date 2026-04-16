@@ -44,10 +44,17 @@
 - PBKDF2 with 600,000 iterations makes brute-force slow (~0.1s per attempt)
 - seed.enc and seed.salt have 0o600 permissions (owner-only read/write)
 - Passphrase is read from env or interactive prompt (never logged to stdout)
+- `sz service install` writes the passphrase to `/etc/saturnzap/saturnzap.env`
+  with `0o600` permissions (owner-only) and references it from the systemd
+  unit via `EnvironmentFile=`. The unit file itself (0o644) contains no secrets.
+- Minimum passphrase length of 12 characters enforced at init
+  (override with `SZ_ALLOW_WEAK_PASSPHRASE=1` for testing only)
 
-**Gap:** If the passphrase is weak (e.g., "password"), PBKDF2 won't help against a targeted dictionary attack. No passphrase strength enforcement exists.
+**Gap:** 12 characters is a basic length check, not a full entropy measurement.
+A weak-but-long passphrase (`aaaaaaaaaaaa`) still passes.
 
-**Mitigation:** Document minimum passphrase requirements. Consider adding entropy check on `sz init`.
+**Mitigation:** Document passphrase best practices. Consider zxcvbn-style
+entropy scoring in a future version.
 
 ---
 

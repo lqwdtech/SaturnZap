@@ -76,7 +76,7 @@ a structured error handler that maps LDK exceptions to JSON error codes.
 
 ### `mcp_server.py` — MCP Server
 
-FastMCP server exposing 20 tools over stdio JSON-RPC. Uses an async lifespan context
+FastMCP server exposing 25 tools over stdio JSON-RPC. Uses an async lifespan context
 to start the LDK node once on server boot and stop it on shutdown.
 
 Entry points: `serve()` function, `sz mcp` CLI command, `sz-mcp` standalone binary.

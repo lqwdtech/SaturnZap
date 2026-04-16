@@ -98,8 +98,24 @@ def main(
             help="Bitcoin network: signet, testnet, bitcoin.",
         ),
     ] = None,
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            help="Print SaturnZap version and exit.",
+            is_eager=True,
+        ),
+    ] = False,
 ) -> None:
     """SaturnZap — Lightning wallet for autonomous AI agents."""
+    if version:
+        try:
+            from importlib.metadata import version as _pkg_version
+            ver = _pkg_version("saturnzap")
+        except Exception:  # noqa: BLE001
+            ver = "unknown"
+        output.ok(version=ver)
+        raise typer.Exit(0)
     if pretty or os.environ.get("SZ_PRETTY", "") == "1":
         output.set_pretty(True)
     if network:
@@ -820,9 +836,29 @@ def fetch(
         float,
         typer.Option("--timeout", help="HTTP timeout in seconds"),
     ] = 30.0,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Skip mainnet confirmation."),
+    ] = False,
 ) -> None:
     """Fetch a URL. Auto-detects HTTP 402, pays the invoice, and retries."""
     from saturnzap import l402
+
+    # L402 auto-pay can spend real bitcoin on mainnet. Gate it behind the same
+    # confirmation used for pay/keysend/send/channels-open.
+    _confirm_mainnet(yes)
+
+    # Apply env-var default cap when --max-sats is not explicitly set.
+    if max_sats is None:
+        env_cap = os.environ.get("SZ_CLI_MAX_SPEND_SATS")
+        if env_cap:
+            try:
+                max_sats = int(env_cap)
+            except ValueError:
+                output.error(
+                    "INVALID_ARGS",
+                    f"SZ_CLI_MAX_SPEND_SATS must be an integer, got: {env_cap}",
+                )
 
     extra_headers: dict[str, str] = {}
     for h in (header or []):

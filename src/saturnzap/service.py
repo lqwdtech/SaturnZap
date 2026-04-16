@@ -10,6 +10,8 @@ from pathlib import Path
 
 _UNIT_NAME = "saturnzap.service"
 _UNIT_PATH = Path("/etc/systemd/system") / _UNIT_NAME
+_ENV_DIR = Path("/etc/saturnzap")
+_ENV_PATH = _ENV_DIR / "saturnzap.env"
 
 _UNIT_TEMPLATE = """\
 [Unit]
@@ -24,9 +26,8 @@ ExecStart={exec_start}
 Restart=on-failure
 RestartSec=10
 User={user}
-Environment=SZ_PASSPHRASE={passphrase_placeholder}
+EnvironmentFile={env_path}
 Environment=SZ_MAINNET_CONFIRM=yes
-{env_line}
 WorkingDirectory={work_dir}
 StandardOutput=journal
 StandardError=journal
@@ -34,6 +35,16 @@ StandardError=journal
 [Install]
 WantedBy=multi-user.target
 """
+
+
+def _render_env_file(passphrase: str) -> str:
+    """Render the EnvironmentFile contents with passphrase + extra vars."""
+    lines = [f"SZ_PASSPHRASE={passphrase}"]
+    for var in ("SZ_REGION", "SZ_ESPLORA_URL", "SZ_MCP_MAX_SPEND_SATS"):
+        val = os.environ.get(var)
+        if val:
+            lines.append(f"{var}={val}")
+    return "\n".join(lines) + "\n"
 
 
 def _find_sz_executable() -> str:
@@ -49,23 +60,19 @@ def _find_sz_executable() -> str:
 def generate_unit(passphrase_env: bool = True) -> str:
     """Generate the systemd unit file content.
 
+    The passphrase is NOT embedded in the unit file. It is written to a
+    separate EnvironmentFile with 0o600 permissions by install().
+
     Args:
-        passphrase_env: If True, reads SZ_PASSPHRASE from current env.
+        passphrase_env: Unused. Kept for backward compatibility.
     """
+    del passphrase_env  # no longer embedded in unit
     user = os.environ.get("USER", "root")
     work_dir = os.getcwd()
-    passphrase = os.environ.get("SZ_PASSPHRASE", "") if passphrase_env else ""
 
     # Resolve the seed file path for ExecStartPre check
     from saturnzap.config import data_dir
     seed_path = str(data_dir() / "seed.enc")
-
-    # Collect extra env vars
-    env_lines = []
-    for var in ("SZ_REGION", "SZ_ESPLORA_URL", "SZ_MCP_MAX_SPEND_SATS"):
-        val = os.environ.get(var)
-        if val:
-            env_lines.append(f"Environment={var}={val}")
 
     sz_path = _find_sz_executable()
     exec_start = f"{sz_path} start --daemon"
@@ -73,15 +80,14 @@ def generate_unit(passphrase_env: bool = True) -> str:
     return _UNIT_TEMPLATE.format(
         exec_start=exec_start,
         user=user,
-        passphrase_placeholder=passphrase,
-        env_line="\n".join(env_lines),
+        env_path=str(_ENV_PATH),
         work_dir=work_dir,
         seed_path=seed_path,
     )
 
 
 def install() -> dict:
-    """Write the systemd unit file, open firewall port, and enable."""
+    """Write the systemd unit file, environment file, open firewall, enable."""
     # Validate passphrase is available before writing the unit
     passphrase = os.environ.get("SZ_PASSPHRASE", "")
     if not passphrase:
@@ -89,13 +95,20 @@ def install() -> dict:
         output.error(
             "INVALID_ARGS",
             "SZ_PASSPHRASE must be set before installing the service. "
-            "The service reads the passphrase from its unit file.",
+            "The service reads the passphrase from its EnvironmentFile.",
         )
 
     # Open firewall port for Lightning P2P
     from saturnzap.node import open_firewall_port
     firewall = open_firewall_port()
 
+    # Write the EnvironmentFile (0o600 — contains passphrase) BEFORE the unit
+    _ENV_DIR.mkdir(parents=True, exist_ok=True)
+    _ENV_DIR.chmod(0o700)
+    _ENV_PATH.write_text(_render_env_file(passphrase))
+    _ENV_PATH.chmod(0o600)
+
+    # Write the unit file — safe to be world-readable (no secrets inside)
     unit_content = generate_unit()
     _UNIT_PATH.write_text(unit_content)
     _UNIT_PATH.chmod(0o644)
@@ -132,6 +145,9 @@ def uninstall() -> dict:
 
     if _UNIT_PATH.exists():
         _UNIT_PATH.unlink()
+
+    if _ENV_PATH.exists():
+        _ENV_PATH.unlink()
 
     subprocess.run(  # noqa: S603, S607
         ["systemctl", "daemon-reload"], check=True,

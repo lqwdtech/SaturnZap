@@ -29,7 +29,7 @@ All source lives in `src/saturnzap/`. Key modules:
 | `l402.py` | HTTP 402 interceptor, token cache (SHA256-hashed URL) |
 | `liquidity.py` | Channel health scoring (0–100), recommendations |
 | `lqwd.py` | LQWD peer directory — 18 regions, timezone-based auto-select |
-| `mcp_server.py` | FastMCP stdio server, 20 tools |
+| `mcp_server.py` | FastMCP stdio server, 25 tools |
 | `service.py` | Systemd service generator |
 
 See [docs/architecture.md](../docs/architecture.md) for diagrams and IPC protocol details.

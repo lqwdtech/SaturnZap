@@ -28,33 +28,37 @@ def test_generate_unit_contains_exec_start(monkeypatch):
 
 
 def test_generate_unit_contains_restart():
-    content = service.generate_unit(passphrase_env=False)
+    content = service.generate_unit()
     assert "Restart=on-failure" in content
     assert "RestartSec=10" in content
 
 
-def test_generate_unit_includes_passphrase(monkeypatch):
+def test_generate_unit_does_not_embed_passphrase(monkeypatch):
+    """Unit file must never contain the passphrase."""
     monkeypatch.setenv("SZ_PASSPHRASE", "secret123")
-    content = service.generate_unit(passphrase_env=True)
+    content = service.generate_unit()
+    assert "secret123" not in content
+    assert "SZ_PASSPHRASE=" not in content
+    # Must reference the EnvironmentFile instead
+    assert "EnvironmentFile=" in content
+
+
+def test_render_env_file_includes_passphrase():
+    content = service._render_env_file("secret123")
     assert "SZ_PASSPHRASE=secret123" in content
 
 
-def test_generate_unit_omits_passphrase_when_disabled():
-    content = service.generate_unit(passphrase_env=False)
-    assert "SZ_PASSPHRASE=" in content  # placeholder is empty
-
-
-def test_generate_unit_includes_extra_env(monkeypatch):
+def test_render_env_file_includes_extra_env(monkeypatch):
     monkeypatch.setenv("SZ_REGION", "CA")
     monkeypatch.setenv("SZ_ESPLORA_URL", "https://esplora.test")
-    content = service.generate_unit(passphrase_env=False)
+    content = service._render_env_file("pw")
     assert "SZ_REGION=CA" in content
     assert "SZ_ESPLORA_URL=https://esplora.test" in content
 
 
 def test_generate_unit_is_valid_ini():
     """Unit file should have [Unit], [Service], [Install] sections."""
-    content = service.generate_unit(passphrase_env=False)
+    content = service.generate_unit()
     assert "[Unit]" in content
     assert "[Service]" in content
     assert "[Install]" in content
@@ -62,7 +66,7 @@ def test_generate_unit_is_valid_ini():
 
 def test_generate_unit_sets_user(monkeypatch):
     monkeypatch.setenv("USER", "testuser")
-    content = service.generate_unit(passphrase_env=False)
+    content = service.generate_unit()
     assert "User=testuser" in content
 
 
@@ -72,9 +76,13 @@ def test_generate_unit_sets_user(monkeypatch):
 def test_install_calls_systemctl(monkeypatch, tmp_path):
     monkeypatch.setenv("SZ_PASSPHRASE", "pw")
     mock_unit_path = tmp_path / "saturnzap.service"
+    mock_env_dir = tmp_path / "etc"
+    mock_env_path = mock_env_dir / "saturnzap.env"
 
     with (
         patch.object(service, "_UNIT_PATH", mock_unit_path),
+        patch.object(service, "_ENV_DIR", mock_env_dir),
+        patch.object(service, "_ENV_PATH", mock_env_path),
         patch("subprocess.run") as mock_run,
         patch("saturnzap.node.open_firewall_port", return_value="not_linux"),
     ):
@@ -90,20 +98,48 @@ def test_install_calls_systemctl(monkeypatch, tmp_path):
     assert ["systemctl", "start", "saturnzap.service"] in calls
 
 
+def test_install_writes_env_file_with_0600(monkeypatch, tmp_path):
+    """The EnvironmentFile must be 0o600 (owner-only) — passphrase is secret."""
+    monkeypatch.setenv("SZ_PASSPHRASE", "secret")
+    mock_unit_path = tmp_path / "saturnzap.service"
+    mock_env_dir = tmp_path / "etc"
+    mock_env_path = mock_env_dir / "saturnzap.env"
+
+    with (
+        patch.object(service, "_UNIT_PATH", mock_unit_path),
+        patch.object(service, "_ENV_DIR", mock_env_dir),
+        patch.object(service, "_ENV_PATH", mock_env_path),
+        patch("subprocess.run"),
+        patch("saturnzap.node.open_firewall_port", return_value="not_linux"),
+    ):
+        service.install()
+
+    assert mock_env_path.exists()
+    assert oct(mock_env_path.stat().st_mode)[-3:] == "600"
+    # Env file contains the passphrase
+    assert "SZ_PASSPHRASE=secret" in mock_env_path.read_text()
+    # Unit file does NOT contain the passphrase
+    assert "secret" not in mock_unit_path.read_text()
+
+
 # ── uninstall ────────────────────────────────────────────────────
 
 
 def test_uninstall_removes_unit(tmp_path):
     mock_unit_path = tmp_path / "saturnzap.service"
     mock_unit_path.write_text("[Unit]\n")
+    mock_env_path = tmp_path / "saturnzap.env"
+    mock_env_path.write_text("SZ_PASSPHRASE=pw\n")
 
     with (
         patch.object(service, "_UNIT_PATH", mock_unit_path),
+        patch.object(service, "_ENV_PATH", mock_env_path),
         patch("subprocess.run") as mock_run,
     ):
         result = service.uninstall()
 
     assert not mock_unit_path.exists()
+    assert not mock_env_path.exists()
     assert result["message"] == "Service removed."
     # stop, disable, daemon-reload
     assert mock_run.call_count == 3
@@ -170,13 +206,20 @@ def test_generate_unit_contains_exec_start_pre(monkeypatch):
     assert "seed.enc" in content
 
 
+def test_generate_unit_contains_environment_file():
+    """Unit file must reference EnvironmentFile — not inline passphrase."""
+    content = service.generate_unit()
+    assert "EnvironmentFile=" in content
+    assert "/etc/saturnzap/" in content
+
+
 def test_generate_unit_contains_mainnet_confirm():
-    content = service.generate_unit(passphrase_env=False)
+    content = service.generate_unit()
     assert "SZ_MAINNET_CONFIRM=yes" in content
 
 
 def test_generate_unit_contains_journal_output():
-    content = service.generate_unit(passphrase_env=False)
+    content = service.generate_unit()
     assert "StandardOutput=journal" in content
     assert "StandardError=journal" in content
 
@@ -199,9 +242,13 @@ def test_install_requires_passphrase(monkeypatch, tmp_path):
 def test_install_includes_firewall(monkeypatch, tmp_path):
     monkeypatch.setenv("SZ_PASSPHRASE", "pw")
     mock_unit_path = tmp_path / "saturnzap.service"
+    mock_env_dir = tmp_path / "etc"
+    mock_env_path = mock_env_dir / "saturnzap.env"
 
     with (
         patch.object(service, "_UNIT_PATH", mock_unit_path),
+        patch.object(service, "_ENV_DIR", mock_env_dir),
+        patch.object(service, "_ENV_PATH", mock_env_path),
         patch("subprocess.run") as mock_run,
         patch("saturnzap.node.open_firewall_port", return_value="opened"),
     ):

@@ -18,7 +18,7 @@ On startup, the server automatically:
 1. Loads the encrypted seed using `SZ_PASSPHRASE`
 2. Starts the LDK Lightning node
 3. Syncs wallet state via Esplora
-4. Exposes 20 tools for the agent to call
+4. Exposes 25 tools for the agent to call
 
 On shutdown, the node is stopped gracefully.
 
@@ -116,6 +116,7 @@ serve()  # blocks, communicates over stdio
 |---|---|
 | `is_initialized` | Check if the wallet has been initialized. |
 | `init_wallet` | Generate a new BIP39 seed and start the node. Call once only. |
+| `setup_wallet` | Idempotent setup: init (if needed), open firewall, detect host. |
 | `get_status` | Node pubkey, sync state, block height, timestamps. |
 | `get_connect_info` | Connection URI (`pubkey@host:port`) for sharing with other wallets. |
 | `stop_node` | Stop the Lightning node gracefully. |
@@ -126,6 +127,7 @@ serve()  # blocks, communicates over stdio
 |---|---|
 | `new_onchain_address` | Generate a new on-chain receive address. |
 | `get_balance` | On-chain + Lightning balances with per-channel breakdown. |
+| `send_onchain` | Send on-chain funds to an address. `amount_sats=None` sweeps the wallet. |
 
 ### Peers
 
@@ -165,6 +167,13 @@ serve()  # blocks, communicates over stdio
 | `liquidity_status` | — | Channel health scores and recommendations. |
 | `request_inbound` | `amount_sats`, `region` | Request inbound liquidity from LQWD. |
 | `list_lqwd_nodes` | `region` | List available LQWD nodes (18 regions). |
+
+### Backup & Restore
+
+| Tool | Parameters | Description |
+|---|---|---|
+| `backup_wallet` | `output_path` | Create an encrypted backup of the wallet (mnemonic + peers + L402 tokens). |
+| `restore_wallet` | `input_path` | Restore a wallet from an encrypted backup. |
 
 ---
 

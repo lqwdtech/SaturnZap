@@ -100,6 +100,22 @@ def test_long_passphrase_round_trip(tmp_data_dir):
     assert recovered == mnemonic
 
 
+def test_weak_passphrase_rejected(tmp_data_dir, monkeypatch):
+    """Passphrase shorter than 12 chars should be rejected unless override set."""
+    monkeypatch.setenv("SZ_ALLOW_WEAK_PASSPHRASE", "0")
+    mnemonic = keystore.generate_mnemonic()
+    with pytest.raises(SystemExit):
+        keystore.save_encrypted(mnemonic, "short")
+
+
+def test_weak_passphrase_override(tmp_data_dir, monkeypatch):
+    """Override env var allows short passphrase (testing/legacy only)."""
+    monkeypatch.setenv("SZ_ALLOW_WEAK_PASSPHRASE", "1")
+    mnemonic = keystore.generate_mnemonic()
+    keystore.save_encrypted(mnemonic, "pw")
+    assert keystore.load_mnemonic("pw") == mnemonic
+
+
 def test_salt_is_16_bytes(tmp_data_dir):
     """The saved salt should be exactly 16 bytes."""
     keystore.save_encrypted("abandon " * 23 + "art", "pw")

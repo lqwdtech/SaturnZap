@@ -285,7 +285,7 @@ def test_fetch_cli_normal_response():
         instance = mock_client.return_value.__enter__.return_value
         instance.request.return_value = mock_response
 
-        result = runner.invoke(app, ["fetch", "https://example.com"])
+        result = runner.invoke(app, ["fetch", "https://example.com", "--yes"])
 
     assert result.exit_code == 0
     data = json.loads(result.output)
