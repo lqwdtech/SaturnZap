@@ -96,9 +96,9 @@ The `firewall` field is present only when running in `--daemon` mode. Values:
 {
   "status": "ok",
   "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b...",
-  "host": "137.184.229.83",
+  "host": "203.0.113.10",
   "port": 9737,
-  "uri": "0234b0c302e8c201e0ffd31580bf9106b625505b...@137.184.229.83:9737",
+  "uri": "0234b0c302e8c201e0ffd31580bf9106b625505b...@203.0.113.10:9737",
   "network": "bitcoin"
 }
 ```
@@ -109,9 +109,9 @@ With `--check` flag:
 {
   "status": "ok",
   "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b...",
-  "host": "137.184.229.83",
+  "host": "203.0.113.10",
   "port": 9737,
-  "uri": "0234b0c302e8c201e0ffd31580bf9106b625505b...@137.184.229.83:9737",
+  "uri": "0234b0c302e8c201e0ffd31580bf9106b625505b...@203.0.113.10:9737",
   "network": "bitcoin",
   "reachable": true
 }
@@ -208,7 +208,7 @@ or all channels critically low. Omitted when everything is healthy.
   "peers": [
     {
       "node_id": "03992d76a7ea4e17...",
-      "address": "24.199.102.209:9735",
+      "address": "198.51.100.10:9735",
       "is_connected": true,
       "is_persisted": true
     }
@@ -222,7 +222,7 @@ or all channels critically low. Omitted when everything is healthy.
 {
   "status": "ok",
   "node_id": "03992d76a7ea4e17...",
-  "address": "24.199.102.209:9735",
+  "address": "198.51.100.10:9735",
   "message": "Peer added."
 }
 ```

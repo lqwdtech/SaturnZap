@@ -111,12 +111,13 @@ def test_peer_connect_and_disconnect(main_droplet, test_peer_droplet):
     peer_pubkey = peer_status["pubkey"]
 
     # Write a test script to the main droplet
+    peer_host = test_peer_droplet.host
     script = textwrap.dedent(f"""\
         import json, time, sys
         sys.path.insert(0, "/root/saturnzap/src")
         from saturnzap import node
         n = node._require_node()
-        node.connect_peer("{peer_pubkey}", "24.199.102.209:9735")
+        node.connect_peer("{peer_pubkey}", "{peer_host}:9735")
         time.sleep(2)
         peers = node.list_peers()
         print(json.dumps(peers))
@@ -224,6 +225,7 @@ def test_pay_invoice_returns_preimage(main_droplet, test_peer_droplet):
         bolt11 = inv_data["invoice"]
 
         # Pay from main via an in-process script (node must be alive)
+        peer_host = test_peer_droplet.host
         script = textwrap.dedent(f"""\
             import json, os, sys, time
             os.environ["SZ_NETWORK"] = "signet"
@@ -231,7 +233,7 @@ def test_pay_invoice_returns_preimage(main_droplet, test_peer_droplet):
             from saturnzap import node, payments
             n = node._require_node()
             try:
-                node.connect_peer("{peer_pubkey}", "24.199.102.209:9735")
+                node.connect_peer("{peer_pubkey}", "{peer_host}:9735")
             except Exception:
                 pass
             time.sleep(2)

@@ -6,9 +6,15 @@ They are skipped by default — use ``pytest -m live`` to run them.
 
 from __future__ import annotations
 
+import os
 import subprocess
 
 import pytest
+
+# Live test droplet hosts. Override via env vars so forks/contributors can
+# point the live suite at their own infrastructure without editing source.
+MAIN_DROPLET_HOST = os.environ.get("SZ_LIVE_MAIN_HOST", "")
+PEER_DROPLET_HOST = os.environ.get("SZ_LIVE_PEER_HOST", "")
 
 
 def pytest_collection_modifyitems(config, items):
@@ -23,14 +29,23 @@ def pytest_collection_modifyitems(config, items):
         return
 
     # If we're here, user explicitly selected live tests — check connectivity
-    skip = pytest.mark.skip(reason="Live test droplet not reachable")
+    skip = pytest.mark.skip(
+        reason="Live test droplet not configured — set SZ_LIVE_MAIN_HOST"
+    )
+    if not MAIN_DROPLET_HOST:
+        for item in items:
+            if "live" in [m.name for m in item.iter_markers()]:
+                item.add_marker(skip)
+        return
+
+    skip_unreachable = pytest.mark.skip(reason="Live test droplet not reachable")
     for item in items:
         if "live" in [m.name for m in item.iter_markers()]:
             # Quick connectivity check for the main droplet
             try:
-                subprocess.run(
+                subprocess.run(  # noqa: S603
                     ["ssh", "-o", "ConnectTimeout=5",  # noqa: S607
-                     "root@137.184.229.83", "echo ok"],
+                     f"root@{MAIN_DROPLET_HOST}", "echo ok"],
                     capture_output=True,
                     timeout=10,
                     check=True,
@@ -40,19 +55,23 @@ def pytest_collection_modifyitems(config, items):
                 subprocess.TimeoutExpired,
                 FileNotFoundError,
             ):
-                item.add_marker(skip)
+                item.add_marker(skip_unreachable)
 
 
 @pytest.fixture()
 def main_droplet():
     """SSH helper for the main SaturnZap droplet."""
-    return _DropletSSH("137.184.229.83")
+    if not MAIN_DROPLET_HOST:
+        pytest.skip("SZ_LIVE_MAIN_HOST not set")
+    return _DropletSSH(MAIN_DROPLET_HOST)
 
 
 @pytest.fixture()
 def test_peer_droplet():
     """SSH helper for the test peer droplet."""
-    return _DropletSSH("24.199.102.209")
+    if not PEER_DROPLET_HOST:
+        pytest.skip("SZ_LIVE_PEER_HOST not set")
+    return _DropletSSH(PEER_DROPLET_HOST)
 
 
 class _DropletSSH:
@@ -138,7 +157,9 @@ def mainnet_droplet():
     Starts a mainnet daemon before all tests in the module and stops
     it afterwards, so LDK doesn't cold-start on every command.
     """
-    d = _MainnetDropletSSH("137.184.229.83")
+    if not MAIN_DROPLET_HOST:
+        pytest.skip("SZ_LIVE_MAIN_HOST not set")
+    d = _MainnetDropletSSH(MAIN_DROPLET_HOST)
     d.start_mainnet_daemon()
     yield d
     d.stop_mainnet_daemon()

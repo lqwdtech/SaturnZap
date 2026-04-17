@@ -346,7 +346,7 @@ The `body` field is parsed as JSON when possible, otherwise a raw string.
   "peers": [
     {
       "node_id": "03992d76...",
-      "address": "24.199.102.209:9735",
+      "address": "198.51.100.10:9735",
       "is_connected": true
     }
   ]
