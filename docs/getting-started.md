@@ -30,6 +30,7 @@ source .venv/bin/activate
 uv sync
 
 # Verify
+sz --version
 sz --help
 ```
 

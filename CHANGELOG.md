@@ -6,6 +6,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- `sz --version` now works without requiring a subcommand (`invoke_without_command=True` on the top-level Typer app).
+- `saturnzap.__version__` is now derived from installed package metadata, so it always matches the actual release rather than a hard-coded string.
+- Mainnet Esplora fallback chain promotes `esplora.lqwd.ai` to the primary endpoint; `blockstream.info` and `mempool.space` remain as fallbacks.
+- Input validation at the wallet boundary: `create_invoice`, `keysend`, `send_onchain`, and `open_channel` now reject non-positive amounts with `INVALID_ARGS` before contacting the node.
+- `daemon_is_running()` no longer double-closes its probe socket.
+- README now reports the correct MCP tool count (25).
+
+---
+
 ## [1.0.1] — 2026-04-16
 
 Security hardening, audit remediation, and public-repo readiness.

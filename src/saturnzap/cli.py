@@ -63,6 +63,7 @@ app = typer.Typer(
     name="sz",
     add_completion=False,
     no_args_is_help=True,
+    invoke_without_command=True,
     pretty_exceptions_enable=False,
 )
 
