@@ -129,7 +129,7 @@ the infrastructure is the business.
 ┌──────────────────────▼──────────────────────────────────┐
 │                    LDK Node                             │
 │  - Full Lightning protocol implementation               │
-│  - Esplora chain sync (fallback: mempool + blockstream) │
+│  - Esplora chain sync (LQWD → blockstream → mempool)   │
 │  - BIP39 key management                                 │
 │  - Peer connections and channel state machine           │
 └──────────────┬────────────────────────┬─────────────────┘

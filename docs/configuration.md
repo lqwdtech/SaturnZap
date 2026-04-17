@@ -30,7 +30,7 @@ for development and testing.
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `network` | string | `"bitcoin"` | Bitcoin network: `bitcoin`, `signet`, or `testnet` |
-| `esplora_url` | string | `"https://blockstream.info/api"` | Esplora REST API endpoint. Overrides the fallback chain. |
+| `esplora_url` | string | `"https://esplora.lqwd.ai"` | Esplora REST API endpoint. Overrides the fallback chain. |
 
 ### Liquidity Config
 

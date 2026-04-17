@@ -231,9 +231,9 @@ Ensure `SZ_PASSPHRASE` matches the passphrase used during `sz init`.
 
 ### Node won't sync
 
-Check that Esplora endpoints are reachable. SaturnZap probes mempool.space and
-blockstream.info automatically. See [Configuration](configuration.md) for custom
-Esplora URLs.
+Check that Esplora endpoints are reachable. SaturnZap probes esplora.lqwd.ai,
+blockstream.info, and mempool.space automatically. See [Configuration](configuration.md)
+for custom Esplora URLs.
 
 ### Tools not appearing
 
