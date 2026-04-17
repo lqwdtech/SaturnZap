@@ -6,6 +6,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [1.0.1] — 2026-04-16
+
+Security hardening, audit remediation, and public-repo readiness.
+
+### Security
+
+- **systemd secrets:** `sz service install` now writes the passphrase to `/etc/saturnzap/saturnzap.env` (mode `0600`) and references it from the unit file via `EnvironmentFile=`. The unit file itself no longer contains secrets.
+- **Mainnet confirmation gate on `sz fetch`:** L402 payments on mainnet now require `--yes` or `SZ_MAINNET_CONFIRM=yes`, matching `sz pay`, `sz keysend`, and `sz send`.
+- **Default spending cap on `sz fetch`:** `SZ_CLI_MAX_SPEND_SATS` environment variable caps every L402 payment when `--max-sats` is not supplied.
+- **Passphrase minimum length:** `sz init` enforces a 12-character minimum. Bypass (testing only) with `SZ_ALLOW_WEAK_PASSPHRASE=1`.
+- **Backup integrity validation:** `sz restore` validates payload schema — mnemonic word count (12/15/18/21/24), `format_version` type, and overall structure — before touching the keystore.
+
+### Reliability
+
+- **MCP error handling:** all 25 MCP tools are now wrapped in a decorator that converts `CommandError`, `SystemExit`, and unexpected exceptions into structured JSON error responses. The MCP server no longer terminates on tool errors.
+- **Channel open resilience:** replaced the fixed 3-second sleep after `open_channel` with a 250 ms polling loop (up to 3 s), and made peer-rejection log parsing exception-safe.
+- **Test isolation:** autouse fixture resets `node._node`, `node._ipc_mode`, and `output._pretty` between tests to eliminate state leakage.
+
+### CLI
+
+- Added `sz --version` flag.
+- Added `--yes` / `-y` flag to `sz fetch`.
+
+### Documentation & Release
+
+- Added `SECURITY.md` with private disclosure policy.
+- Aligned tool counts, test counts, and project status across README, CHANGELOG, CLAUDE.md, copilot-instructions, and all `docs/` files (**25 MCP tools, 23 IPC methods, 415 tests**).
+- Replaced private droplet IPs in docs with RFC 5737 example addresses.
+- Live-test droplet hosts now configurable via `SZ_LIVE_MAIN_HOST` and `SZ_LIVE_PEER_HOST`; live tests skip cleanly when unset.
+- Added Dependabot configuration and CodeQL workflow.
+
+---
+
 ## [0.1.0] — 2026-04-13
 
 First public release. CLI-first, non-custodial Lightning wallet for AI agents.
