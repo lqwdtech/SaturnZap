@@ -83,7 +83,7 @@ the infrastructure is the business.
 - **Non-custodial** — BIP39 seed lives encrypted on the agent's machine. SaturnZap never
   holds, transmits, or has access to private keys.
 - **No full Bitcoin node** — Esplora REST API provides chain data with automatic fallback
-  (mempool.space → blockstream.info). No bitcoind required.
+  (LQWD → blockstream.info → mempool.space). No bitcoind required.
 - **Peer-agnostic** — Open channels to any Lightning node. LQWD is a smart default with
   global reach, but the agent controls its own peer relationships entirely.
 - **JSON-first** — Every command writes structured JSON to stdout. Errors go to stderr.
@@ -156,7 +156,7 @@ an ephemeral node.
 
 LDK Node syncs chain data via Esplora (block explorer REST API). No external Bitcoin
 node is needed. SaturnZap ships with a fallback chain — if the primary Esplora server
-is unreachable, it automatically probes alternatives (mempool.space, blockstream.info)
+is unreachable, it automatically probes alternatives (LQWD, blockstream.info, mempool.space)
 and connects to the first healthy endpoint. First sync takes a few minutes on a fresh
 install; subsequent starts are near-instant.
 

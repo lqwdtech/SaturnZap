@@ -172,7 +172,7 @@ ensures the node can sync even if one provider is down.
 |---|---|
 | `signet` | `mempool.space/signet/api` → `blockstream.info/signet/api` |
 | `testnet` | `mempool.space/testnet/api` → `blockstream.info/testnet/api` |
-| `bitcoin` | `blockstream.info/api` → `mempool.space/api` |
+| `bitcoin` | `esplora.lqwd.ai` → `blockstream.info/api` → `mempool.space/api` |
 
 **Health check:** `GET /blocks/tip/height` with a 3-second timeout. First HTTP 200 wins.
 

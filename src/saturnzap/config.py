@@ -26,7 +26,7 @@ DEFAULT_LISTEN_PORTS: dict[str, int] = {
 }
 
 # Public mainnet Esplora endpoint
-DEFAULT_ESPLORA_URL = "https://blockstream.info/api"
+DEFAULT_ESPLORA_URL = "https://esplora.lqwd.ai"
 
 # Fallback Esplora endpoints per network.  Probed in order; first healthy wins.
 ESPLORA_FALLBACKS: dict[str, list[str]] = {
@@ -39,6 +39,7 @@ ESPLORA_FALLBACKS: dict[str, list[str]] = {
         "https://blockstream.info/testnet/api",
     ],
     "bitcoin": [
+        "https://esplora.lqwd.ai",
         "https://blockstream.info/api",
         "https://mempool.space/api",
     ],
