@@ -347,9 +347,12 @@ def new_onchain_address() -> str:
 
 def send_onchain(address: str, amount_sats: int | None = None) -> str:
     """Send sats on-chain. If *amount_sats* is None, send all funds."""
+    from saturnzap import output
+
+    if amount_sats is not None and amount_sats <= 0:
+        output.error("INVALID_ARGS", "amount_sats must be positive (omit to sweep).")
     if _use_ipc():
         return _ipc("send_onchain", address=address, amount_sats=amount_sats)  # type: ignore[return-value]
-    from saturnzap import output
 
     node = _require_node()
     node.sync_wallets()
@@ -579,6 +582,12 @@ def open_channel(
     rejections (e.g. channel too small).  Raises ``CommandError`` with
     code ``CHANNEL_REJECTED`` if the peer rejects the channel.
     """
+    from saturnzap import output
+
+    if amount_sats <= 0:
+        output.error("INVALID_ARGS", "amount_sats must be positive.")
+    if push_msat is not None and push_msat < 0:
+        output.error("INVALID_ARGS", "push_msat must be non-negative.")
     if _use_ipc():
         return _ipc(  # type: ignore[return-value]
             "open_channel",

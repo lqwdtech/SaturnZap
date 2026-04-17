@@ -296,7 +296,6 @@ def daemon_is_running() -> bool:
     sock.settimeout(2.0)
     try:
         sock.connect(str(sock_path))
-        sock.close()
         return True
     except (ConnectionRefusedError, FileNotFoundError, OSError):
         # Stale socket — daemon crashed without cleanup

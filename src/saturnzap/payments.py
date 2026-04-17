@@ -44,6 +44,12 @@ def create_invoice(
     expiry_secs: int = DEFAULT_INVOICE_EXPIRY_SECS,
 ) -> dict:
     """Create a BOLT11 invoice for *amount_sats*."""
+    from saturnzap import output
+
+    if amount_sats < 0:
+        output.error("INVALID_ARGS", "amount_sats must be >= 0 (0 = variable amount).")
+    if expiry_secs <= 0:
+        output.error("INVALID_ARGS", "expiry_secs must be positive.")
     if _use_ipc():
         return _ipc(  # type: ignore[return-value]
             "create_invoice",
@@ -140,9 +146,12 @@ def pay_invoice(invoice_str: str, max_sats: int | None = None) -> dict:
 
 def keysend(pubkey: str, amount_sats: int) -> dict:
     """Send a spontaneous (keysend) payment to *pubkey*."""
+    from saturnzap import output
+
+    if amount_sats <= 0:
+        output.error("INVALID_ARGS", "amount_sats must be positive.")
     if _use_ipc():
         return _ipc("keysend", pubkey=pubkey, amount_sats=amount_sats)  # type: ignore[return-value]
-    from saturnzap import output
 
     node = _require_node()
 

@@ -88,7 +88,7 @@ the infrastructure is the business.
   global reach, but the agent controls its own peer relationships entirely.
 - **JSON-first** — Every command writes structured JSON to stdout. Errors go to stderr.
   Designed for machine consumption from day one.
-- **MCP-native** — Built-in MCP server exposes 22 tools over stdio. Connect Claude,
+- **MCP-native** — Built-in MCP server exposes 25 tools over stdio. Connect Claude,
   Cursor, VS Code, or any MCP-compatible agent with a single config block.
 - **Autonomous** — No interactive prompts in normal operation. Designed to run
   inside agent runtimes, shell scripts, and orchestration pipelines. (Mainnet
@@ -381,7 +381,7 @@ sz-mcp                           # Same as sz mcp
 }
 ```
 
-The MCP server exposes 22 tools covering node lifecycle, wallet, peers, channels,
+The MCP server exposes 25 tools covering node lifecycle, wallet, peers, channels,
 payments, L402 fetch, and liquidity management. Set `SZ_MCP_MAX_SPEND_SATS` to
 enforce a global per-request spending cap on L402 payments.
 
@@ -494,7 +494,7 @@ enforce a global per-request spending cap on L402 payments.
 │       ├── keystore.py            # BIP39 seed, Fernet encryption
 │       ├── lqwd.py                # LQWD node directory (18 regions)
 │       ├── config.py              # Config paths, Esplora fallback, TOML loader
-│       ├── mcp_server.py          # MCP server — 22 tools for AI agents
+│       ├── mcp_server.py          # MCP server — 25 tools for AI agents
 │       ├── service.py             # Systemd service generator
 │       └── output.py              # JSON output, TTY detection, --pretty
 │
