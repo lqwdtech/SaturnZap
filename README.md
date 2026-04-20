@@ -27,14 +27,6 @@ sz fetch https://api.example.com/data
 
 ---
 
-> **⚠️ Use at your own risk.** SaturnZap is non-custodial software. You hold your
-> own keys, and you are solely responsible for your funds. This software is
-> provided "as is" under the MIT license — no warranty, no guarantees. Test with
-> small amounts first. Back up your seed phrase. Understand what you're doing
-> before putting real bitcoin on it.
-
----
-
 ## What is SaturnZap?
 
 SaturnZap is an open-source Lightning wallet designed from the ground up for AI agents
@@ -655,6 +647,24 @@ included in all JSON responses.
 - PyPI publish (trusted publisher workflow ready)
 - Docker image
 - OpenClaw ClawHub listing
+
+---
+
+## Responsible Use
+
+SaturnZap is non-custodial software. You hold your own keys, and you are solely
+responsible for your funds. It is provided under the MIT license on an "as is"
+basis — the usual open-source terms apply. A few practical suggestions:
+
+- Start with small amounts on mainnet while you get comfortable with the tooling.
+- Back up your seed phrase somewhere safe and offline. Without it, there is no
+  recovery path.
+- Use `--network signet` for development and integration testing — signet coins
+  are free and isolated from your mainnet wallet.
+- Set spending caps (`--max-sats`, `SZ_CLI_MAX_SPEND_SATS`, `SZ_MCP_MAX_SPEND_SATS`)
+  when running autonomous agents.
+
+See [SECURITY.md](SECURITY.md) for the threat model and disclosure policy.
 
 ---
 
