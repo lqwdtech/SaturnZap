@@ -3,6 +3,16 @@ name: Publish to PyPI
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Publish target"
+        required: true
+        default: "testpypi"
+        type: choice
+        options:
+          - testpypi
+          - pypi
 
 permissions:
   contents: write
@@ -11,7 +21,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-24.04
-    environment: pypi
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'pypi' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -27,15 +37,23 @@ jobs:
         run: uv sync
 
       - name: Test
-        run: uv run pytest tests/ -v
+        run: uv run pytest tests/ -v -m "not live and not mainnet"
 
       - name: Build
         run: uv build
 
+      - name: Publish to TestPyPI
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
       - name: Publish to PyPI
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
         uses: pypa/gh-action-pypi-publish@release/v1
 
       - name: Upload ldk-node wheel to GitHub Release
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
           files: |

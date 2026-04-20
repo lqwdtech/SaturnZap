@@ -1,28 +1,34 @@
 [project]
 name = "saturnzap"
-version = "1.0.1"
+version = "1.0.2"
 description = "CLI-first, non-custodial Lightning Network wallet for autonomous AI agents"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.12"
 authors = [{ name = "Shone Anstey" }]
-keywords = ["lightning", "bitcoin", "wallet", "cli", "ldk", "l402", "ai-agent"]
+keywords = ["lightning", "bitcoin", "wallet", "cli", "ldk", "l402", "ai-agent", "mcp"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Topic :: Office/Business :: Financial",
     "Topic :: Security :: Cryptography",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+# Note: `ldk-node` is not published to PyPI. The wheel is attached to each
+# SaturnZap GitHub release. Install with:
+#   pip install saturnzap --find-links https://github.com/ShoneAnstey/SaturnZap/releases/latest/download/
+# or clone and use `uv sync` (resolves via [tool.uv.sources] below).
 dependencies = [
     "typer>=0.15",
     "cryptography>=44.0",
     "platformdirs>=4.3",
     "mnemonic>=0.21",
-    "ldk-node",
+    "ldk-node==0.7.0",
     "python-dotenv>=1.2.2",
     "httpx>=0.28.1",
     "mcp>=1.26",
@@ -32,6 +38,9 @@ dependencies = [
 Homepage = "https://github.com/ShoneAnstey/SaturnZap"
 Repository = "https://github.com/ShoneAnstey/SaturnZap"
 Issues = "https://github.com/ShoneAnstey/SaturnZap/issues"
+Documentation = "https://github.com/ShoneAnstey/SaturnZap/tree/main/docs"
+Changelog = "https://github.com/ShoneAnstey/SaturnZap/blob/main/CHANGELOG.md"
+Security = "https://github.com/ShoneAnstey/SaturnZap/blob/main/SECURITY.md"
 
 [tool.uv.sources]
 ldk-node = { path = "vendor/ldk_node-0.7.0-py3-none-any.whl" }

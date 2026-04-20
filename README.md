@@ -13,6 +13,9 @@
 
 <p align="center">
   <a href="https://github.com/ShoneAnstey/SaturnZap/actions/workflows/ci.yml"><img src="https://github.com/ShoneAnstey/SaturnZap/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://pypi.org/project/saturnzap/"><img src="https://img.shields.io/pypi/v/saturnzap.svg" alt="PyPI"></a>
+  <a href="https://pypi.org/project/saturnzap/"><img src="https://img.shields.io/pypi/pyversions/saturnzap.svg" alt="Python versions"></a>
+  <a href="https://github.com/ShoneAnstey/SaturnZap/blob/main/LICENSE"><img src="https://img.shields.io/github/license/ShoneAnstey/SaturnZap.svg" alt="License: MIT"></a>
 </p>
 
 ```bash
@@ -21,6 +24,14 @@ sz channels open --lsp lqwd
 sz pay --invoice lnbc1...
 sz fetch https://api.example.com/data
 ```
+
+---
+
+> **⚠️ Use at your own risk.** SaturnZap is non-custodial software. You hold your
+> own keys, and you are solely responsible for your funds. This software is
+> provided "as is" under the MIT license — no warranty, no guarantees. Test with
+> small amounts first. Back up your seed phrase. Understand what you're doing
+> before putting real bitcoin on it.
 
 ---
 

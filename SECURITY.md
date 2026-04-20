@@ -7,8 +7,8 @@ minor release on `main`. Older versions are not patched.
 
 | Version | Supported |
 | ------- | --------- |
-| 0.1.x   | ✅        |
-| < 0.1   | ❌        |
+| 1.0.x   | ✅        |
+| < 1.0   | ❌        |
 
 ## Reporting a Vulnerability
 

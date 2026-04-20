@@ -8,6 +8,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+---
+
+## [1.0.2] — 2026-04-20
+
+Public release polish. Metadata, badges, and installation clarity for PyPI and GitHub visibility.
+
 ### Fixed
 
 - `sz --version` now works without requiring a subcommand (`invoke_without_command=True` on the top-level Typer app).
@@ -16,6 +22,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - Input validation at the wallet boundary: `create_invoice`, `keysend`, `send_onchain`, and `open_channel` now reject non-positive amounts with `INVALID_ARGS` before contacting the node.
 - `daemon_is_running()` no longer double-closes its probe socket.
 - README now reports the correct MCP tool count (25).
+
+### Changed
+
+- `ldk-node` dependency pinned to `==0.7.0` to match the vendored wheel.
+- `Development Status` classifier advanced from Alpha to Beta.
+- Added PyPI, Python-versions, and License badges to the README.
+- Added `Documentation`, `Changelog`, and `Security` project URLs to `pyproject.toml`.
+- Added `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1).
+- Publish workflow now supports `workflow_dispatch` for TestPyPI dry-runs before a real release.
+- `SECURITY.md` supported-versions table updated to 1.0.x.
 
 ---
 
