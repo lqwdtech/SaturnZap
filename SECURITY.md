@@ -17,7 +17,7 @@ minor release on `main`. Older versions are not patched.
 Report security issues privately via one of the following channels:
 
 - **GitHub Security Advisory** (preferred): open a draft advisory at
-  <https://github.com/ShoneAnstey/SaturnZap/security/advisories/new>
+  <https://github.com/lqwdtech/SaturnZap/security/advisories/new>
 - **Email**: security@saturnzap.dev (PGP key on request)
 
 Include:

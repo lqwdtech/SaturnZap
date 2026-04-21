@@ -9,7 +9,7 @@ for AI agents, and contributions are welcome.
 
 ```bash
 # Prerequisites: Python 3.12+, uv (https://docs.astral.sh/uv/)
-git clone https://github.com/ShoneAnstey/SaturnZap.git
+git clone https://github.com/lqwdtech/SaturnZap.git
 cd SaturnZap
 uv venv
 source .venv/bin/activate
@@ -134,4 +134,4 @@ See [docs/architecture.md](docs/architecture.md) for the full design.
 
 ## Questions?
 
-Open an issue at [github.com/ShoneAnstey/SaturnZap/issues](https://github.com/ShoneAnstey/SaturnZap/issues).
+Open an issue at [github.com/lqwdtech/SaturnZap/issues](https://github.com/lqwdtech/SaturnZap/issues).

@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-REPO="ShoneAnstey/SaturnZap"
+REPO="lqwdtech/SaturnZap"
 PROJECT_URL="https://github.com/users/ShoneAnstey/projects/8"
 WIKI_URL="https://github.com/$REPO/wiki"
 CHECKLIST_FILE="/tmp/.saturnzap-push-checklist"

@@ -21,7 +21,7 @@ classifiers = [
 ]
 # Note: `ldk-node` is not published to PyPI. The wheel is attached to each
 # SaturnZap GitHub release. Install with:
-#   pip install saturnzap --find-links https://github.com/ShoneAnstey/SaturnZap/releases/latest/download/
+#   pip install saturnzap --find-links https://github.com/lqwdtech/SaturnZap/releases/latest/download/
 # or clone and use `uv sync` (resolves via [tool.uv.sources] below).
 dependencies = [
     "typer>=0.15",
@@ -35,12 +35,12 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ShoneAnstey/SaturnZap"
-Repository = "https://github.com/ShoneAnstey/SaturnZap"
-Issues = "https://github.com/ShoneAnstey/SaturnZap/issues"
-Documentation = "https://github.com/ShoneAnstey/SaturnZap/tree/main/docs"
-Changelog = "https://github.com/ShoneAnstey/SaturnZap/blob/main/CHANGELOG.md"
-Security = "https://github.com/ShoneAnstey/SaturnZap/blob/main/SECURITY.md"
+Homepage = "https://github.com/lqwdtech/SaturnZap"
+Repository = "https://github.com/lqwdtech/SaturnZap"
+Issues = "https://github.com/lqwdtech/SaturnZap/issues"
+Documentation = "https://github.com/lqwdtech/SaturnZap/tree/main/docs"
+Changelog = "https://github.com/lqwdtech/SaturnZap/blob/main/CHANGELOG.md"
+Security = "https://github.com/lqwdtech/SaturnZap/blob/main/SECURITY.md"
 
 [tool.uv.sources]
 ldk-node = { path = "vendor/ldk_node-0.7.0-py3-none-any.whl" }

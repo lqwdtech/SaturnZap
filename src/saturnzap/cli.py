@@ -39,7 +39,7 @@ def main_cli() -> None:
             "  pip install vendor/ldk_node-0.7.0-py3-none-any.whl\n"
             "Or with --find-links from GitHub Releases:\n"
             "  pip install saturnzap --find-links "
-            "https://github.com/ShoneAnstey/SaturnZap/releases/latest/download/",
+            "https://github.com/lqwdtech/SaturnZap/releases/latest/download/",
             file=sys.stderr,
         )
         raise SystemExit(1) from None

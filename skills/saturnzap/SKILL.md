@@ -1,7 +1,7 @@
 ---
 name: saturnzap
 description: "Non-custodial Lightning wallet for AI agents via `sz` CLI: send/receive sats, pay invoices, auto-pay HTTP 402 (L402), manage channels and liquidity. Use when: (1) paying for API access with Lightning, (2) creating or paying BOLT11 invoices, (3) checking wallet balance or channel health, (4) managing peers and channels. NOT for: on-chain-only Bitcoin transactions, custodial Lightning services."
-homepage: https://github.com/ShoneAnstey/SaturnZap
+homepage: https://github.com/lqwdtech/SaturnZap
 metadata:
   { "openclaw": { "emoji": "⚡", "os": ["linux"], "requires": { "bins": ["sz"], "env": ["SZ_PASSPHRASE"] }, "primaryEnv": "SZ_PASSPHRASE", "install": [{ "id": "uv", "kind": "uv", "package": "saturnzap", "bins": ["sz"], "label": "Install SaturnZap (uv)" }] } }
 ---

@@ -12,10 +12,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ShoneAnstey/SaturnZap/actions/workflows/ci.yml"><img src="https://github.com/ShoneAnstey/SaturnZap/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/lqwdtech/SaturnZap/actions/workflows/ci.yml"><img src="https://github.com/lqwdtech/SaturnZap/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://pypi.org/project/saturnzap/"><img src="https://img.shields.io/pypi/v/saturnzap.svg" alt="PyPI"></a>
   <a href="https://pypi.org/project/saturnzap/"><img src="https://img.shields.io/pypi/pyversions/saturnzap.svg" alt="Python versions"></a>
-  <a href="https://github.com/ShoneAnstey/SaturnZap/blob/main/LICENSE"><img src="https://img.shields.io/github/license/ShoneAnstey/SaturnZap.svg" alt="License: MIT"></a>
+  <a href="https://github.com/lqwdtech/SaturnZap/blob/main/LICENSE"><img src="https://img.shields.io/github/license/lqwdtech/SaturnZap.svg" alt="License: MIT"></a>
 </p>
 
 ```bash
@@ -566,7 +566,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
 
 # Clone and install
-git clone https://github.com/ShoneAnstey/SaturnZap
+git clone https://github.com/lqwdtech/SaturnZap
 cd saturnzap
 uv venv
 source .venv/bin/activate
@@ -580,10 +580,10 @@ sz --help
 
 ```bash
 # ldk-node is not yet on PyPI — use --find-links to pull it from GitHub Releases
-pip install saturnzap --find-links https://github.com/ShoneAnstey/SaturnZap/releases/latest/download/
+pip install saturnzap --find-links https://github.com/lqwdtech/SaturnZap/releases/latest/download/
 
 # Or with uv
-uv pip install saturnzap --find-links https://github.com/ShoneAnstey/SaturnZap/releases/latest/download/
+uv pip install saturnzap --find-links https://github.com/lqwdtech/SaturnZap/releases/latest/download/
 ```
 
 ---

@@ -23,7 +23,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
 
 # Clone and install
-git clone https://github.com/ShoneAnstey/SaturnZap.git
+git clone https://github.com/lqwdtech/SaturnZap.git
 cd SaturnZap
 uv venv
 source .venv/bin/activate
@@ -39,11 +39,11 @@ sz --help
 ```bash
 # ldk-node is not yet on PyPI — use --find-links for the vendored wheel
 pip install saturnzap \
-  --find-links https://github.com/ShoneAnstey/SaturnZap/releases/latest/download/
+  --find-links https://github.com/lqwdtech/SaturnZap/releases/latest/download/
 
 # Or with uv
 uv pip install saturnzap \
-  --find-links https://github.com/ShoneAnstey/SaturnZap/releases/latest/download/
+  --find-links https://github.com/lqwdtech/SaturnZap/releases/latest/download/
 ```
 
 ---
