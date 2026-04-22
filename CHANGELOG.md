@@ -8,10 +8,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+---
+
+## [1.2.0] — 2026-04-22
+
+Agent-focused LSP default. Fresh wallets can now receive inbound liquidity without any on-chain funding first, thanks to LQWD's new LSPS1/LSPS2 JIT-capable node. Also includes docs alignment fixes surfaced by an external audit.
+
 ### Added
 
 - **LQWD-AI-Grid is now the default mainnet peer.** The agent-focused LQWD node (`028aebfca5…eee3`, region code `AI`) supports LSPS1 and LSPS2 JIT channels and auto-opens a channel back on first peer contact. Fresh wallets can start receiving inbound liquidity without any on-chain funding first. `sz setup --auto` connects to AI-Grid by default on mainnet.
 - **`SZ_REGION=NEAREST`** opts out of the AI-Grid default and falls back to timezone-based selection across the 18-region geographic fleet. `SZ_REGION=AI` explicitly pins AI-Grid; `SZ_REGION=<code>` (e.g. `JP`, `CA`) still pins a specific region. AI-Grid is included in `mainnet_trusted_pubkeys()` so the same 0-conf + anchor-reserve waiver as the rest of the LQWD fleet applies.
+
+### Changed
+
+- **README architecture diagram** now labels the daemon as `sz start — foreground, blocks` (matching 1.1.0 behaviour).
+- **README + docs/getting-started** clarify that mainnet spending commands prompt for confirmation unless `--yes` or `SZ_MAINNET_CONFIRM=yes` is set. Previous wording claimed zero interactive prompts, which was inaccurate after mainnet safety gates landed.
+
+### Fixed
+
+- Ruff E501 on the LQWD LND pubkey constant. Security scanner grade restored to A+.
 
 ---
 
