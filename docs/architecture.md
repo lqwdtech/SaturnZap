@@ -133,8 +133,10 @@ iterations and a random 16-byte salt.
 
 ### `lqwd.py` — LQWD Node Directory
 
-Static directory of 18 LQWD Lightning nodes across 18 regions. Timezone-based
-auto-selection picks the nearest node. Override with `SZ_REGION` env var.
+Static directory of LQWD Lightning nodes: 18 regional nodes plus the agent-focused
+`LQWD-AI-Grid` (region code `AI`, LSPS1/LSPS2 JIT-capable). On mainnet, `AI` is the
+default selection. `SZ_REGION=NEAREST` opts in to timezone-based selection across
+the geographic fleet; `SZ_REGION=<code>` pins a specific region.
 
 ### `config.py` — Configuration
 
@@ -188,7 +190,9 @@ MCP tool parameters (after initialization).
 ### LQWD as Default, Not Requirement
 
 LQWD node pubkeys are embedded for convenience. Agents can peer with any Lightning node.
-The timezone-based auto-selector is a shortcut — not a lock-in mechanism.
+On mainnet the default is `LQWD-AI-Grid` (LSPS1/LSPS2 JIT-capable), with the 18-region
+geographic fleet available via `SZ_REGION=NEAREST` or a specific region code. None of
+this is a lock-in — it is a shortcut for first-run setup.
 
 ### Spending Caps
 

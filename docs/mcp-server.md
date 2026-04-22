@@ -104,7 +104,7 @@ serve()  # blocks, communicates over stdio
 | `SZ_PASSPHRASE` | **Required.** Decrypts the seed file. | — |
 | `SZ_MCP_MAX_SPEND_SATS` | Global per-request spending cap for `l402_fetch`. | No limit |
 | `SZ_PRETTY` | Set to `1` for pretty-printed JSON (rarely needed for MCP). | `0` |
-| `SZ_REGION` | Force a specific LQWD region (e.g. `JP`, `CA`). | Auto-detect |
+| `SZ_REGION` | Force a specific LQWD region (e.g. `JP`, `CA`). | `AI` on mainnet (LQWD-AI-Grid, LSPS1/LSPS2 JIT); use `NEAREST` for timezone-based fallback |
 
 ---
 

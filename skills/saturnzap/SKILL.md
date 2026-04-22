@@ -204,10 +204,10 @@ sz channels list
 # Open a channel to a specific peer
 sz channels open --peer "03abc...@1.2.3.4:9735" --amount-sats 100000
 
-# Open a channel via LQWD LSP (auto-selects nearest region)
+# Open a channel via LQWD LSP (defaults to LQWD-AI-Grid on mainnet — LSPS1/LSPS2 JIT-capable)
 sz channels open --lsp lqwd --amount-sats 100000
 
-# Open a channel via LQWD in a specific region
+# Open a channel via a specific LQWD region (e.g. Japan)
 sz channels open --lsp lqwd --region JP --amount-sats 200000
 
 # Close a channel cooperatively
@@ -350,5 +350,5 @@ sz pay --invoice "lnbc..." --max-sats 5000
 
 - All output is JSON. Use `--pretty` or `SZ_PRETTY=1` for human-readable formatting.
 - The node auto-starts from the encrypted seed when any command needs it. Explicit `sz start` is rarely needed.
-- LQWD region codes: CA, US, SE, FR, GB, IE, IT, DE, BH, JP, AU, SG, HK, KR, ID, IN, BR, ZA.
+- LQWD region codes: `AI` (LQWD-AI-Grid, default on mainnet, LSPS1/LSPS2 JIT-capable), `NEAREST` (timezone-based fallback), or a specific country: CA, US, SE, FR, GB, IE, IT, DE, BH, JP, AU, SG, HK, KR, ID, IN, BR, ZA.
 - `sz fetch` caches L402 tokens — repeated requests to the same endpoint reuse the token without re-paying.

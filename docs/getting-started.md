@@ -21,7 +21,7 @@ uv tool install saturnzap \
 # 3. Set a strong passphrase (encrypts the seed at rest)
 export SZ_PASSPHRASE="your-secure-passphrase"
 
-# 4. Generate seed, start node, pick nearest LQWD peer, open firewall port
+# 4. Generate seed, start node, pick LQWD peer, open firewall port
 sz setup --auto
 
 # 5. Keep the node running across reboots

@@ -28,7 +28,7 @@ All source lives in `src/saturnzap/`. Key modules:
 | `payments.py` | BOLT11 invoices, keysend, spending caps, history |
 | `l402.py` | HTTP 402 interceptor, token cache (SHA256-hashed URL) |
 | `liquidity.py` | Channel health scoring (0–100), recommendations |
-| `lqwd.py` | LQWD peer directory — 18 regions, timezone-based auto-select |
+| `lqwd.py` | LQWD peer directory — 18 regions + agent-focused AI-Grid (LSPS1/LSPS2 JIT), default on mainnet |
 | `mcp_server.py` | FastMCP stdio server, 25 tools |
 | `service.py` | Systemd service generator |
 
