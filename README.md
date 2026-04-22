@@ -128,7 +128,7 @@ the infrastructure is the business.
 └──────────────────────┼──────────────────────────────────┘
                        │ Unix Domain Socket (sz.sock)
 ┌──────────────────────▼──────────────────────────────────┐
-│              Daemon (sz start --daemon)                  │
+│           Daemon (sz start — foreground, blocks)         │
 │                                                         │
 │  IPC Server (asyncio) ─── Wallet Core                   │
 │  23 JSON methods          node.py, payments.py, l402.py │
@@ -188,11 +188,15 @@ anyone. SaturnZap has no routing logic that artificially prefers LQWD — Lightn
 pathfinding selects the best route. LQWD nodes appear as attractive routes naturally
 because of their connectivity and capacity across 18 countries.
 
-#### JSON-first, no interactive prompts
+#### JSON-first, non-interactive by default
 
-All commands are designed for non-interactive execution. No `[y/N]` confirmations. No
-spinners that break pipe parsing. Pass `--pretty` for human-readable output in a TTY.
-Default is always clean JSON.
+All commands are designed for non-interactive execution. No spinners that break pipe
+parsing. Pass `--pretty` for human-readable output in a TTY. Default is always clean
+JSON.
+
+One exception for safety: mainnet spending commands (`send`, `pay`, `keysend`,
+`channels open`) show a `[y/N]` confirmation. Skip it with `--yes` or
+`SZ_MAINNET_CONFIRM=yes` in automation. Signet and testnet never prompt.
 
 #### Autonomous channel management
 

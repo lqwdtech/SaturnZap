@@ -234,8 +234,12 @@ The node will restart automatically on the next command that requires it.
 
 ## For AI Agent Runtimes
 
-SaturnZap requires no interactive input. Set `SZ_PASSPHRASE` in the environment and
-all commands work non-interactively.
+SaturnZap is designed for non-interactive use. Set `SZ_PASSPHRASE` in the environment
+and all read and setup commands run without prompts.
+
+On **mainnet**, spending commands (`send`, `pay`, `keysend`, `channels open`) show a
+confirmation prompt. Pass `--yes` or set `SZ_MAINNET_CONFIRM=yes` in the environment
+to skip it. Signet and testnet never prompt.
 
 For **MCP-compatible agents** (Claude Desktop, Cursor, VS Code), see the
 [MCP Server Guide](mcp-server.md) — no CLI wrapping needed.

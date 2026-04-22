@@ -279,7 +279,7 @@ NODES = SIGNET_NODES
 # Additional LQWD mainnet infrastructure pubkeys that aren't in MAINNET_NODES.
 # Primary LND node (used by LQWDClaw faucet to open inbound channels).
 LQWD_MAINNET_LND_PUBKEYS: list[str] = [
-    "03683cdb57591430a24ce0fe86c966b2cc396cf3025a7bbac6683a23873f24758c",  # pragma: allowlist secret
+    "03683cdb57591430a24ce0fe86c966b2cc396cf3025a7bbac6683a23873f24758c",  # noqa: E501  # pragma: allowlist secret
 ]
 
 
