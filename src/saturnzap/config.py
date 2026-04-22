@@ -17,12 +17,13 @@ DEFAULT_NETWORK = "bitcoin"
 
 VALID_NETWORKS = ("signet", "testnet", "bitcoin")
 
-# Default Lightning P2P listen port per network
-# (avoids conflicts on multi-network hosts)
+# Default Lightning P2P listen port per network.
+# Mainnet uses the standard Lightning port 9735; signet/testnet use adjacent
+# ports to avoid bind conflicts when running multiple networks on one host.
 DEFAULT_LISTEN_PORTS: dict[str, int] = {
-    "signet": 9735,
-    "testnet": 9736,
-    "bitcoin": 9737,
+    "signet": 9736,
+    "testnet": 9737,
+    "bitcoin": 9735,
 }
 
 # Public mainnet Esplora endpoint
@@ -160,3 +161,65 @@ def load_liquidity_config() -> dict[str, Any]:
     merged = dict(_LIQUIDITY_DEFAULTS)
     merged.update(cfg.get("liquidity", {}))
     return merged
+
+
+# ── Node section (alias, trusted peers, min_confirms, listen_port) ──
+
+_NODE_DEFAULTS: dict[str, Any] = {
+    "min_confirms": 3,
+}
+
+
+def load_node_config() -> dict[str, Any]:
+    """Return the ``[node]`` section from config, with defaults."""
+    cfg = _load_config_raw()
+    merged = dict(_NODE_DEFAULTS)
+    merged.update(cfg.get("node", {}))
+    return merged
+
+
+def save_node_config_key(key: str, value: Any) -> None:
+    """Persist a single ``[node]`` key to ``config.toml``.
+
+    Uses a minimal TOML writer — preserves existing top-level keys and the
+    ``[node]`` / ``[liquidity]`` sections verbatim where possible.
+    """
+    path = config_path()
+    raw: dict[str, Any] = _load_config_raw() if path.exists() else {}
+    node_section = dict(raw.get("node", {}))
+    if value is None:
+        node_section.pop(key, None)
+    else:
+        node_section[key] = value
+    raw["node"] = node_section
+    _write_config_toml(raw)
+
+
+def _write_config_toml(data: dict[str, Any]) -> None:
+    """Serialise config dict to TOML. Simple writer (strings, ints, bools, lists)."""
+    lines: list[str] = []
+    top_scalars = {k: v for k, v in data.items() if not isinstance(v, dict)}
+    sections = {k: v for k, v in data.items() if isinstance(v, dict)}
+
+    for k, v in top_scalars.items():
+        lines.append(f"{k} = {_toml_value(v)}")
+    for section_name, section in sections.items():
+        if lines and lines[-1] != "":
+            lines.append("")
+        lines.append(f"[{section_name}]")
+        for k, v in section.items():
+            lines.append(f"{k} = {_toml_value(v)}")
+
+    config_path().write_text("\n".join(lines) + "\n")
+
+
+def _toml_value(v: Any) -> str:
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, (int, float)):
+        return str(v)
+    if isinstance(v, list):
+        return "[" + ", ".join(_toml_value(x) for x in v) + "]"
+    # string
+    s = str(v).replace("\\", "\\\\").replace("\"", "\\\"")
+    return f"\"{s}\""

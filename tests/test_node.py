@@ -191,8 +191,8 @@ def test_get_connect_info_returns_uri(mock_ldk_node):
 
     assert result["pubkey"] == "02abc123"
     assert result["host"] == "1.2.3.4"
-    assert result["port"] == 9735
-    assert result["uri"] == "02abc123@1.2.3.4:9735"
+    assert result["port"] == 9736
+    assert result["uri"] == "02abc123@1.2.3.4:9736"
     assert result["network"] == "signet"
 
 
@@ -693,20 +693,12 @@ def test_open_firewall_port_add_fails():
 
 
 def test_check_port_reachable_open():
-    mock_resp = MagicMock()
-    mock_resp.status_code = 200
-    mock_resp.json.return_value = {"check": [{"port": 9737, "status": True}]}
-
-    with patch("httpx.get", return_value=mock_resp):
+    with patch("saturnzap.node._probe_check_host_net", return_value=True):
         assert node.check_port_reachable("1.2.3.4", 9737) is True
 
 
 def test_check_port_reachable_closed():
-    mock_resp = MagicMock()
-    mock_resp.status_code = 200
-    mock_resp.json.return_value = {"check": [{"port": 9737, "status": False}]}
-
-    with patch("httpx.get", return_value=mock_resp):
+    with patch("saturnzap.node._probe_check_host_net", return_value=False):
         assert node.check_port_reachable("1.2.3.4", 9737) is False
 
 
@@ -716,25 +708,70 @@ def test_check_port_reachable_no_host():
         assert node.check_port_reachable(None, 9737) is None
 
 
-def test_check_port_reachable_api_failure_falls_back():
-    """Falls back to whatismyip when portchecker.io fails."""
-    import httpx
+def test_check_port_reachable_service_unavailable():
+    """Returns None when check-host.net is unreachable."""
+    with patch("saturnzap.node._probe_check_host_net", return_value=None):
+        assert node.check_port_reachable("1.2.3.4", 9737) is None
+
+
+def test_probe_check_host_net_success():
+    """_probe_check_host_net returns True when any probe reports an address."""
+    submit_resp = MagicMock()
+    submit_resp.status_code = 200
+    submit_resp.json.return_value = {"request_id": "abc"}
+
+    result_resp = MagicMock()
+    result_resp.status_code = 200
+    result_resp.json.return_value = {
+        "node-a": [[{"time": 0.1, "address": "1.2.3.4:9737"}]],
+        "node-b": None,
+    }
+
+    calls = {"n": 0}
 
     def side_effect(url, **kwargs):
-        if "portchecker" in url:
-            raise httpx.HTTPError("down")
-        resp = MagicMock()
-        resp.status_code = 200
-        resp.text = "Port 9737 is open on 1.2.3.4"
-        return resp
+        calls["n"] += 1
+        return submit_resp if calls["n"] == 1 else result_resp
 
-    with patch("httpx.get", side_effect=side_effect):
-        assert node.check_port_reachable("1.2.3.4", 9737) is True
+    with (
+        patch("httpx.get", side_effect=side_effect),
+        patch("time.sleep"),
+    ):
+        assert node._probe_check_host_net("1.2.3.4", 9737) is True
 
 
-def test_check_port_reachable_all_services_fail():
-    """Returns None when all external services fail."""
+def test_probe_check_host_net_all_failures():
+    """_probe_check_host_net returns False when all probes report errors."""
+    submit_resp = MagicMock()
+    submit_resp.status_code = 200
+    submit_resp.json.return_value = {"request_id": "abc"}
+
+    result_resp = MagicMock()
+    result_resp.status_code = 200
+    result_resp.json.return_value = {
+        "node-a": [[{"error": "Connection refused"}]],
+        "node-b": [[{"error": "Timeout"}]],
+    }
+
+    calls = {"n": 0}
+
+    def side_effect(url, **kwargs):
+        calls["n"] += 1
+        return submit_resp if calls["n"] == 1 else result_resp
+
+    with (
+        patch("httpx.get", side_effect=side_effect),
+        patch("time.sleep"),
+    ):
+        assert node._probe_check_host_net("1.2.3.4", 9737) is False
+
+
+def test_probe_check_host_net_service_down():
+    """_probe_check_host_net returns None when submit fails."""
     import httpx
 
-    with patch("httpx.get", side_effect=httpx.HTTPError("down")):
-        assert node.check_port_reachable("1.2.3.4", 9737) is None
+    with (
+        patch("httpx.get", side_effect=httpx.HTTPError("down")),
+        patch("time.sleep"),
+    ):
+        assert node._probe_check_host_net("1.2.3.4", 9737) is None

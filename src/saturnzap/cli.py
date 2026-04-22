@@ -128,7 +128,18 @@ def main(
 
 
 @app.command()
-def init() -> None:
+def init(
+    for_lqwd_faucet: Annotated[
+        bool,
+        typer.Option(
+            "--for-lqwd-faucet",
+            help=(
+                "Preset for LQWDClaw faucet: sets alias, trusts LQWD LND, "
+                "sets 0-conf + no-reserve waivers. Mainnet only."
+            ),
+        ),
+    ] = False,
+) -> None:
     """Generate seed, encrypt it, and start the Lightning node."""
     from saturnzap import keystore
     from saturnzap import node as node_mod
@@ -140,15 +151,38 @@ def init() -> None:
     passphrase = keystore.get_passphrase(confirm=True)
     path = keystore.save_encrypted(mnemonic, passphrase)
 
+    preset_applied = False
+    if for_lqwd_faucet:
+        from saturnzap.config import get_network, save_node_config_key
+
+        if get_network() != "bitcoin":
+            output.error(
+                "INVALID_ARGS",
+                "--for-lqwd-faucet requires mainnet. Re-run without --network.",
+            )
+        # LQWD fleet + LND pubkey are already trusted by default on mainnet
+        # (see node._resolve_trusted_peers). The preset also saves a readable
+        # alias so LQWDClaw shows something useful.
+        preset_alias = "saturnzap-lqwdclaw"
+        save_node_config_key("alias", preset_alias)
+        preset_applied = True
+
     # Start the node with the fresh mnemonic
     n = node_mod.start(mnemonic)
 
-    output.ok(
-        mnemonic=mnemonic,
-        pubkey=n.node_id(),
-        seed_path=str(path),
-        message="Wallet initialized. WRITE DOWN YOUR MNEMONIC AND STORE IT SAFELY.",
-    )
+    resp = {
+        "mnemonic": mnemonic,
+        "pubkey": n.node_id(),
+        "seed_path": str(path),
+        "message": "Wallet initialized. WRITE DOWN YOUR MNEMONIC AND STORE IT SAFELY.",
+    }
+    if preset_applied:
+        resp["preset"] = "lqwd-faucet"
+        resp["next_steps"] = [
+            "Run 'sz service install' to persist the node.",
+            "Run 'sz connect-info --check' and share the URI with LQWDClaw.",
+        ]
+    output.ok(**resp)
 
 
 @app.command()
@@ -227,12 +261,29 @@ def setup(
 
         bal = node_mod.get_balance()
         has_channels = len(bal["channels"]) > 0
+        onchain_sats = bal.get("spendable_onchain_sats") or bal.get(
+            "onchain_sats", 0,
+        ) or 0
+        # Rough pre-flight threshold: inbound requires ~1% push fee + on-chain
+        # reserve + fees. Require at least 5_000 sats on-chain before trying.
+        min_bootstrap_sats = max(inbound_sats // 100 + 4_000, 5_000)
 
         if has_channels:
             steps.append({
                 "step": "inbound",
                 "skipped": True,
                 "reason": "channel(s) already exist",
+            })
+        elif onchain_sats < min_bootstrap_sats:
+            steps.append({
+                "step": "inbound",
+                "skipped": True,
+                "reason": (
+                    f"wallet unfunded (have {onchain_sats} sats, "
+                    f"need ~{min_bootstrap_sats} sats to request inbound)"
+                ),
+                "onchain_sats": onchain_sats,
+                "required_sats": min_bootstrap_sats,
             })
         else:
             try:
@@ -243,6 +294,14 @@ def setup(
                     "step": "inbound",
                     "skipped": True,
                     "reason": "inbound request failed (fund wallet first)",
+                })
+            except Exception as exc:  # noqa: BLE001
+                # Catch LDK exceptions (InsufficientFunds etc.) so --auto on a
+                # borderline-funded wallet reports a skip instead of erroring.
+                steps.append({
+                    "step": "inbound",
+                    "skipped": True,
+                    "reason": f"inbound request failed: {exc}",
                 })
 
     # Build next_steps guidance
@@ -275,28 +334,50 @@ def setup(
 
 @app.command()
 def start(
+    foreground: Annotated[
+        bool,
+        typer.Option(
+            "--foreground",
+            help="Start the node, print status, and exit (non-persistent).",
+        ),
+    ] = False,
     daemon: Annotated[
         bool,
         typer.Option(
             "--daemon",
-            help="Keep node running in the foreground (for systemd/services).",
+            help="[Deprecated] Now the default. Kept for back-compat.",
+            hidden=True,
         ),
     ] = False,
 ) -> None:
-    """Start the Lightning node, verify connectivity, and exit."""
+    """Start the Lightning node and block until stopped (SIGTERM/SIGINT).
+
+    By default, ``sz start`` runs as a foreground daemon suitable for systemd.
+    Use ``--foreground`` for the old "print and exit" behavior (note: the
+    node is NOT persistent in that mode).
+    """
     import signal
     import time
 
     from saturnzap import node as node_mod
 
+    # --daemon is a no-op flag now; default behavior already runs as daemon.
+    _ = daemon
+    as_daemon = not foreground
+
     n = node_mod._require_node()
-    firewall = node_mod.open_firewall_port() if daemon else None
+    firewall = node_mod.open_firewall_port() if as_daemon else None
     resp = {"pubkey": n.node_id(), "message": "Node started."}
     if firewall:
         resp["firewall"] = firewall
+    if not as_daemon:
+        resp["warning"] = (
+            "Foreground mode: node stops when this process exits. "
+            "Run 'sz service install' to persist as a systemd service."
+        )
     output.ok(**resp)
 
-    if daemon:
+    if as_daemon:
         # Start IPC server so CLI commands can talk to this daemon
         from saturnzap.ipc import (
             IPCServer,
@@ -583,6 +664,189 @@ def peers_remove(
 
     node_mod.disconnect_peer(pubkey)
     output.ok(node_id=pubkey, message="Peer removed.")
+
+
+@peers_app.command("trust")
+def peers_trust(
+    pubkey: Annotated[
+        str,
+        typer.Argument(help="Peer public key to trust (waives anchor reserve)."),
+    ],
+) -> None:
+    """Add a peer to the anchor-reserve waiver list.
+
+    Applied on the next node start. Allows zero-balance wallets to accept
+    inbound channels from this peer without an on-chain reserve.
+    """
+    from saturnzap.config import load_node_config, save_node_config_key
+
+    pubkey = pubkey.strip()
+    cfg = load_node_config()
+    current = list(cfg.get("trusted_peers_no_reserve") or [])
+    if pubkey not in current:
+        current.append(pubkey)
+        save_node_config_key("trusted_peers_no_reserve", current)
+    output.ok(
+        pubkey=pubkey,
+        trusted_peers=current,
+        message="Peer trusted. Restart node to apply.",
+    )
+
+
+@peers_app.command("untrust")
+def peers_untrust(
+    pubkey: Annotated[
+        str,
+        typer.Argument(help="Peer public key to remove from the trust list."),
+    ],
+) -> None:
+    """Remove a peer from the anchor-reserve waiver list."""
+    from saturnzap.config import load_node_config, save_node_config_key
+
+    pubkey = pubkey.strip()
+    cfg = load_node_config()
+    current = [p for p in (cfg.get("trusted_peers_no_reserve") or []) if p != pubkey]
+    save_node_config_key(
+        "trusted_peers_no_reserve", current if current else None,
+    )
+    output.ok(
+        pubkey=pubkey,
+        trusted_peers=current,
+        message="Peer untrusted. Restart node to apply.",
+    )
+
+
+@peers_app.command("trusted-list")
+def peers_trusted_list() -> None:
+    """List trusted peers (anchor-reserve waiver + LQWD fleet)."""
+    from saturnzap.config import get_network, load_node_config
+    from saturnzap.lqwd import mainnet_trusted_pubkeys
+
+    cfg = load_node_config()
+    user_trusted = list(cfg.get("trusted_peers_no_reserve") or [])
+    fleet = mainnet_trusted_pubkeys() if get_network() == "bitcoin" else []
+    output.ok(
+        network=get_network(),
+        lqwd_fleet=fleet,
+        user_trusted=user_trusted,
+    )
+
+
+# ── Phase 2: Config ──────────────────────────────────────────────
+
+config_app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False)
+app.add_typer(config_app, name="config", help="Manage SaturnZap configuration.")
+
+
+_CONFIG_KEY_SPEC: dict[str, str] = {
+    "node.alias": "Lightning node alias (string, max 32 chars).",
+    "node.listen_port": "Lightning P2P listen port (int).",
+    "node.min_confirms": "Channel confirmation threshold (int).",
+    "node.trusted_peers_no_reserve": "Trusted peers for anchor reserve waiver (list).",
+    "esplora_url": "Esplora API endpoint (string).",
+    "network": "Bitcoin network: bitcoin, signet, or testnet (string).",
+}
+
+
+def _split_config_key(key: str) -> tuple[str | None, str]:
+    if "." in key:
+        section, sub = key.split(".", 1)
+        return section, sub
+    return None, key
+
+
+@config_app.command("list")
+def config_list() -> None:
+    """List known config keys and their current values."""
+    from saturnzap.config import _load_config_raw
+
+    raw = _load_config_raw()
+    flat: dict[str, object] = {}
+    for k, v in raw.items():
+        if isinstance(v, dict):
+            for sk, sv in v.items():
+                flat[f"{k}.{sk}"] = sv
+        else:
+            flat[k] = v
+    output.ok(config=flat, known_keys=sorted(_CONFIG_KEY_SPEC.keys()))
+
+
+@config_app.command("get")
+def config_get(
+    key: Annotated[str, typer.Argument(help="Config key, e.g. node.alias")],
+) -> None:
+    """Get a config value."""
+    from saturnzap.config import _load_config_raw
+
+    raw = _load_config_raw()
+    section, sub = _split_config_key(key)
+    value = (
+        raw.get(sub) if section is None else (raw.get(section) or {}).get(sub)
+    )
+    output.ok(key=key, value=value)
+
+
+@config_app.command("set")
+def config_set(
+    key: Annotated[str, typer.Argument(help="Config key (e.g. node.alias).")],
+    value: Annotated[str, typer.Argument(help="Value: string, int, bool, JSON.")],
+) -> None:
+    """Set a config value."""
+    import contextlib
+    import json
+
+    from saturnzap.config import (
+        _load_config_raw,
+        _write_config_toml,
+    )
+
+    # Coerce: try int, bool, JSON list/dict, fallback to string.
+    parsed: object = value
+    if value.lower() in ("true", "false"):
+        parsed = value.lower() == "true"
+    else:
+        try:
+            parsed = int(value)
+        except ValueError:
+            if value.startswith("[") or value.startswith("{"):
+                with contextlib.suppress(json.JSONDecodeError):
+                    parsed = json.loads(value)
+
+    raw = _load_config_raw()
+    section, sub = _split_config_key(key)
+    if section is None:
+        raw[sub] = parsed
+    else:
+        current_section = dict(raw.get(section) or {})
+        current_section[sub] = parsed
+        raw[section] = current_section
+    _write_config_toml(raw)
+    output.ok(key=key, value=parsed, message="Config updated. Restart node to apply.")
+
+
+@config_app.command("unset")
+def config_unset(
+    key: Annotated[str, typer.Argument(help="Config key to remove, e.g. node.alias")],
+) -> None:
+    """Remove a config key."""
+    from saturnzap.config import _load_config_raw, _write_config_toml
+
+    raw = _load_config_raw()
+    section, sub = _split_config_key(key)
+    changed = False
+    if section is None:
+        if sub in raw:
+            del raw[sub]
+            changed = True
+    elif section in raw and isinstance(raw[section], dict) and sub in raw[section]:
+        del raw[section][sub]
+        if not raw[section]:
+            del raw[section]
+        changed = True
+
+    if changed:
+        _write_config_toml(raw)
+    output.ok(key=key, removed=changed, message="Config updated.")
 
 
 # ── Phase 2: Channels ───────────────────────────────────────────

@@ -276,6 +276,33 @@ SIGNET_NODES: list[dict] = [
 NODES = SIGNET_NODES
 
 
+# Additional LQWD mainnet infrastructure pubkeys that aren't in MAINNET_NODES.
+# Primary LND node (used by LQWDClaw faucet to open inbound channels).
+LQWD_MAINNET_LND_PUBKEYS: list[str] = [
+    "03683cdb57591430a24ce0fe86c966b2cc396cf3025a7bbac6683a23873f24758c",  # pragma: allowlist secret
+]
+
+
+def mainnet_trusted_pubkeys() -> list[str]:
+    """Return all LQWD mainnet pubkeys used for anchor reserve waivers.
+
+    Combines the 18-region CLN fleet (``MAINNET_NODES``) with the primary LND
+    pubkey used by the LQWDClaw faucet. Used to populate LDK Node's
+    ``anchor_channels_config.trusted_peers_no_reserve`` so fresh zero-balance
+    wallets can accept inbound channels from any LQWD node without needing an
+    on-chain reserve.
+    """
+    fleet = [n["pubkey"] for n in MAINNET_NODES]
+    # De-duplicate while preserving order
+    seen: set[str] = set()
+    out: list[str] = []
+    for pk in fleet + LQWD_MAINNET_LND_PUBKEYS:
+        if pk not in seen:
+            seen.add(pk)
+            out.append(pk)
+    return out
+
+
 def _nodes_for_network() -> list[dict]:
     """Return the node list for the active network."""
     network = get_network()

@@ -49,6 +49,33 @@ auto_open_enabled = false
 | `liquidity.inbound_threshold_percent` | int | `20` | Warn when inbound capacity drops below this percentage |
 | `liquidity.auto_open_enabled` | bool | `false` | Auto-open channels when thresholds are breached (future) |
 
+### Node Config
+
+```toml
+[node]
+alias = "my-agent-node"
+listen_port = 9735
+min_confirms = 3
+trusted_peers_no_reserve = ["03abc...", "03def..."]
+```
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `node.alias` | string | `saturnzap-<sha256(mnemonic)[:6]>` | Lightning node alias, shown to peers and LSP dashboards. Max 32 chars. |
+| `node.listen_port` | int | `9735` (mainnet), `9736` (signet), `9737` (testnet) | Lightning P2P port. |
+| `node.min_confirms` | int | `3` | Channel confirmation threshold (advisory; LDK Node 0.7 does not yet support per-channel override). |
+| `node.trusted_peers_no_reserve` | list | `[]` | User-added trusted peers for anchor-reserve waiver and 0-conf channels. Combined with the LQWD fleet on mainnet. |
+
+Edit via `sz config`:
+
+```bash
+sz config set node.alias "my-agent-node"
+sz config set node.listen_port 9735
+sz config list
+```
+
+Or for trusted peers specifically, use `sz peers trust <pubkey>`.
+
 ---
 
 ## Environment Variables
@@ -60,6 +87,8 @@ auto_open_enabled = false
 | `SZ_ESPLORA_URL` | Override the Esplora endpoint. Takes precedence over fallback probing but not `esplora_url` in `config.toml`. | — (auto-probe) |
 | `SZ_PRETTY` | Set to `1` for pretty-printed JSON output. | `0` |
 | `SZ_REGION` | Force a specific LQWD region (e.g. `JP`, `CA`, `US`). | Auto-detect from timezone |
+| `SZ_ALIAS` | Override the Lightning node alias. Takes precedence over `[node].alias` in `config.toml`. | Deterministic `saturnzap-<hash>` |
+| `SZ_TRUSTED_PEERS_NO_RESERVE` | Comma-separated list of pubkeys to trust for zero-reserve and 0-conf channels. Combined with `[node].trusted_peers_no_reserve` and (on mainnet) the LQWD fleet. | — |
 | `SZ_MCP_MAX_SPEND_SATS` | Global per-request spending cap for MCP `l402_fetch` tool. | No limit |
 | `SZ_CLI_MAX_SPEND_SATS` | Default spending cap for `sz fetch` when `--max-sats` is not supplied. | No limit |
 | `SZ_MAINNET_CONFIRM` | Set to `yes` to skip mainnet safety confirmation prompts. | — (prompts) |
@@ -130,9 +159,9 @@ running multiple networks on the same host:
 
 | Network | Port |
 |---|---|
-| `signet` | 9735 |
-| `testnet` | 9736 |
-| `bitcoin` | 9737 |
+| `bitcoin` | 9735 |
+| `signet` | 9736 |
+| `testnet` | 9737 |
 
 ### Firewall
 
@@ -146,7 +175,7 @@ assumed to be open.
 To manually open the port:
 
 ```bash
-sudo ufw allow 9737/tcp comment "SaturnZap Lightning"
+sudo ufw allow 9735/tcp comment "SaturnZap Lightning"
 ```
 
 To verify your node is reachable from the internet:

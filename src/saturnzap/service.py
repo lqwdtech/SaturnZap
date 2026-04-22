@@ -174,8 +174,9 @@ def status() -> dict:
     is_enabled = result2.stdout.strip() == "enabled"
 
     # Check if Lightning port is listening
-    from saturnzap.config import DEFAULT_LISTEN_PORTS, get_network
-    port = DEFAULT_LISTEN_PORTS.get(get_network(), 9735)
+    from saturnzap.config import get_network
+    from saturnzap.node import _resolve_listen_port
+    port = _resolve_listen_port(get_network())
     port_listening = _is_port_listening(port)
 
     return {

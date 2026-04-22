@@ -10,6 +10,46 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [1.1.0] — 2026-04-22
+
+LQWD faucet integration polish. Default behaviours now match real-world LSP workflows: long-running node, standard Lightning port, zero-conf channels from trusted peers, and opinionated defaults for alias and anchor reserves.
+
+### Changed
+
+- **`sz start` now runs as a foreground daemon by default** and blocks until SIGTERM/SIGINT. The previous "print and exit" behaviour moves behind `--foreground`. This makes the command drop into systemd units, Docker containers, and supervisors without any wrapping.
+- **Default mainnet listen port is now `9735`** (the canonical Lightning port). Signet stays on `9736`, testnet on `9737`. Existing configs with an explicit `node.listen_port` are unaffected.
+- **Default node alias** is populated at node build time. Priority: `SZ_ALIAS` env → `[node].alias` in `config.toml` → deterministic `saturnzap-<sha256(mnemonic)[:6]>`. Previously the alias was blank, which many LSP dashboards display as "unknown node".
+- **External reachability probe** (`sz connect-info --check`) now uses [check-host.net](https://check-host.net) multi-node TCP probes instead of `portchecker.io` + `whatismyip` fallback. More reliable, returns faster, and distinguishes "closed" from "service unavailable".
+- **Mainnet Esplora primary** is now `esplora.lqwd.ai` (LQWD-operated) ahead of `blockstream.info` and `mempool.space`. This landed in 1.0.2 and remains the default.
+
+### Added
+
+- **LQWD fleet auto-trust on mainnet.** The 18-region LQWD CLN fleet plus the LQWD LND primary are registered as `trusted_peers_no_reserve` and `trusted_peers_0conf` at node build time. Zero-balance wallets can accept their first inbound channel from LQWD without an on-chain reserve, and channels from LQWD become usable in seconds instead of waiting ~60 minutes for six confirmations.
+- **`sz peers trust <pubkey>` / `sz peers untrust <pubkey>` / `sz peers trusted-list`.** Manage additional trusted peers beyond the LQWD fleet. Changes persist in `config.toml` and apply on next node start.
+- **`sz config` command group** — `sz config get`, `sz config set`, `sz config unset`, `sz config list`. Edits `config.toml` programmatically, with type coercion for ints, bools, and JSON values. Agents no longer need to hand-edit TOML.
+- **`sz init --for-lqwd-faucet`** preset. Sets a readable alias (`saturnzap-lqwdclaw`) on mainnet so LQWDClaw recognises the node on first contact. The no-reserve and 0-conf waivers are already on by default for LQWD pubkeys.
+- **`[node]` section in `config.toml`** with fields `alias`, `listen_port`, `min_confirms`, `trusted_peers_no_reserve`.
+- **`SZ_ALIAS`** and **`SZ_TRUSTED_PEERS_NO_RESERVE`** environment variables.
+
+### Fixed
+
+- **`sz setup --auto` no longer errors on a zero-balance wallet.** Added an explicit pre-check before calling `request_inbound`: if the on-chain balance is below a minimum-viable threshold (push fee + reserve), the step is reported as `skipped: true` with a clear reason, and `setup` exits 0. LDK exceptions from `request_inbound` are also caught and converted into skip entries instead of propagating as errors.
+
+### Deprecated
+
+- **`sz start --daemon`** is hidden and now a no-op (daemon is the default). `--foreground` is the escape hatch for the old behaviour. The flag will be removed in a future release.
+
+### Agent / LSP Impact
+
+Teams integrating SaturnZap with an LSP (LQWDClaw, Boltz, etc.) should notice:
+
+1. First channel from the LSP becomes usable almost immediately (0-conf from trusted peers).
+2. Zero-balance wallets can accept their first inbound channel (no anchor reserve required from LQWD peers).
+3. Node appears with a readable alias in LSP dashboards instead of `<unknown>`.
+4. `sz start` slots straight into `systemd` without `sz service install` ceremony (though `sz service install` remains the recommended persistent path).
+
+---
+
 ## [1.0.2] — 2026-04-20
 
 Public release polish. Metadata, badges, and installation clarity for PyPI and GitHub visibility.

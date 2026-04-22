@@ -79,16 +79,113 @@ def build_node(mnemonic: str) -> Node:
     esplora_url = resolve_esplora(network_name, cfg.get("esplora_url"))
 
     config = default_config()
+
+    # ── Node alias ────────────────────────────────────────────────
+    # LDK Node rejects inbound announced channels when alias is None.
+    # Priority: SZ_ALIAS env > [node].alias in config.toml > deterministic default.
+    config.node_alias = _resolve_node_alias(mnemonic)
+
+    # ── Anchor channel reserve waiver ─────────────────────────────
+    # LDK Node's default 25_000 sat per-channel reserve blocks zero-balance
+    # wallets from accepting their first inbound channel. Trust LQWD fleet
+    # pubkeys (and any user-configured peers) so faucet/LSP channels open
+    # without an on-chain reserve requirement.
+    if config.anchor_channels_config is not None and network_name == "bitcoin":
+        config.anchor_channels_config.trusted_peers_no_reserve = (
+            _resolve_trusted_peers()
+        )
+
+    # ── Zero-conf channels from trusted peers ─────────────────────
+    # Accept channels from LQWD fleet nodes at 0 confirmations instead of the
+    # LDK default of 6. Cuts time-to-usable from ~60 min to ~seconds for
+    # faucet/LSP channels. Mainnet only.
+    if network_name == "bitcoin":
+        config.trusted_peers_0conf = _resolve_trusted_peers()
+
     builder = Builder.from_config(config)
     builder.set_network(network)
     builder.set_storage_dir_path(_node_storage())
     builder.set_chain_source_esplora(esplora_url, None)
     builder.set_entropy_bip39_mnemonic(mnemonic, None)
-    listen_port = DEFAULT_LISTEN_PORTS.get(network_name, 9735)
+    listen_port = _resolve_listen_port(network_name)
     builder.set_listening_addresses([f"0.0.0.0:{listen_port}"])
     builder.set_gossip_source_p2p()
 
     return builder.build()
+
+
+def _resolve_node_alias(mnemonic: str) -> str:
+    """Resolve the LDK node alias.
+
+    Priority: ``SZ_ALIAS`` env var → ``[node].alias`` in config.toml →
+    deterministic ``saturnzap-<6-hex>`` derived from the mnemonic.
+    """
+    import hashlib
+    import os
+
+    env_alias = os.environ.get("SZ_ALIAS", "").strip()
+    if env_alias:
+        return env_alias[:32]
+
+    from saturnzap.config import load_node_config
+
+    node_cfg = load_node_config()
+    cfg_alias = str(node_cfg.get("alias", "")).strip()
+    if cfg_alias:
+        return cfg_alias[:32]
+
+    # Deterministic fallback: stable across restarts, unique per wallet.
+    digest = hashlib.sha256(mnemonic.encode("utf-8")).hexdigest()
+    return f"saturnzap-{digest[:6]}"
+
+
+def _resolve_trusted_peers() -> list[str]:
+    """Resolve the mainnet trusted-peer list for anchor reserve waivers.
+
+    Combines LQWD fleet pubkeys, config-file entries, and the
+    ``SZ_TRUSTED_PEERS_NO_RESERVE`` env var (comma-separated).
+    """
+    import os
+
+    from saturnzap.config import load_node_config
+    from saturnzap.lqwd import mainnet_trusted_pubkeys
+
+    pubkeys: list[str] = list(mainnet_trusted_pubkeys())
+
+    node_cfg = load_node_config()
+    cfg_extra = node_cfg.get("trusted_peers_no_reserve", []) or []
+    if isinstance(cfg_extra, list):
+        pubkeys.extend(str(p).strip() for p in cfg_extra if p)
+
+    env_extra = os.environ.get("SZ_TRUSTED_PEERS_NO_RESERVE", "").strip()
+    if env_extra:
+        pubkeys.extend(p.strip() for p in env_extra.split(",") if p.strip())
+
+    # De-dup while preserving order
+    seen: set[str] = set()
+    out: list[str] = []
+    for pk in pubkeys:
+        if pk and pk not in seen:
+            seen.add(pk)
+            out.append(pk)
+    return out
+
+
+def _resolve_listen_port(network_name: str) -> int:
+    """Resolve the Lightning listen port.
+
+    Priority: ``[node].listen_port`` in config.toml → ``DEFAULT_LISTEN_PORTS``.
+    """
+    from saturnzap.config import load_node_config
+
+    node_cfg = load_node_config()
+    port = node_cfg.get("listen_port")
+    if port:
+        try:
+            return int(port)
+        except (TypeError, ValueError):
+            pass
+    return DEFAULT_LISTEN_PORTS.get(network_name, 9735)
 
 
 def start(mnemonic: str) -> Node:
@@ -167,7 +264,7 @@ def get_connect_info() -> dict:
     node = _require_node()
     pubkey = node.node_id()
     network_name = get_network()
-    port = DEFAULT_LISTEN_PORTS.get(network_name, 9735)
+    port = _resolve_listen_port(network_name)
 
     # Detect external IP via a lightweight HTTP service
     host = _detect_external_ip()
@@ -225,7 +322,7 @@ def open_firewall_port(port: int | None = None) -> str:
         return "ufw_not_found"
 
     if port is None:
-        port = DEFAULT_LISTEN_PORTS.get(get_network(), 9735)
+        port = _resolve_listen_port(get_network())
 
     # Check if UFW is active
     try:
@@ -273,44 +370,80 @@ def check_port_reachable(
     Uses an external port-check API. Returns True/False, or None if the check
     itself failed (service down, no internet, etc.).
     """
-    import httpx
-
     if host is None:
         host = _detect_external_ip()
     if host is None:
         return None
     if port is None:
-        port = DEFAULT_LISTEN_PORTS.get(get_network(), 9735)
+        port = _resolve_listen_port(get_network())
 
-    # Try multiple external port-check services
+    # Check via a purpose-built port-check API.
+    # check-host.net returns JSON from multiple geographic probe nodes; any
+    # "OPEN" response is enough to confirm external reachability.
+    result = _probe_check_host_net(host, port)
+    if result is not None:
+        return result
+
+    return None
+
+
+def _probe_check_host_net(host: str, port: int) -> bool | None:
+    """Check external reachability via check-host.net multi-node probe.
+
+    Returns True/False if the service responded, None on service failure.
+    """
+    import time
+
+    import httpx
+
     try:
-        resp = httpx.get(
-            f"https://portchecker.io/api/v1/query?host={host}&ports={port}",
+        submit = httpx.get(
+            "https://check-host.net/check-tcp",
+            params={"host": f"{host}:{port}", "max_nodes": 3},
+            headers={"Accept": "application/json"},
             timeout=5.0,
         )
-        if resp.status_code == 200:
+        if submit.status_code != 200:
+            return None
+        request_id = submit.json().get("request_id")
+        if not request_id:
+            return None
+    except (httpx.HTTPError, OSError, ValueError):
+        return None
+
+    # Poll for results — nodes may take a few seconds to report.
+    results_url = f"https://check-host.net/check-result/{request_id}"
+    for _ in range(5):
+        time.sleep(1.0)
+        try:
+            resp = httpx.get(
+                results_url,
+                headers={"Accept": "application/json"},
+                timeout=5.0,
+            )
+            if resp.status_code != 200:
+                continue
             data = resp.json()
-            # portchecker.io returns {"check": [{"port": N, "status": true/false}]}
-            checks = data.get("check", [])
-            if checks:
-                return checks[0].get("status")
-    except (httpx.HTTPError, OSError, ValueError, KeyError):
-        pass
+        except (httpx.HTTPError, OSError, ValueError):
+            continue
 
-    # Fallback: try open-ports.com
-    try:
-        resp = httpx.get(
-            f"https://www.whatismyip.com/port-scanner/port/{port}/",
-            timeout=5.0,
-            headers={"User-Agent": "SaturnZap/0.1"},
-        )
-        if resp.status_code == 200:
-            if "open" in resp.text.lower():
-                return True
-            if "closed" in resp.text.lower():
-                return False
-    except (httpx.HTTPError, OSError):
-        pass
+        # Shape: {"<node-id>": [[{"time": ..., "address": "<ip>:<port>"}]], ...}
+        # A node that hasn't completed yet has value `null`.
+        completed = [v for v in data.values() if v is not None]
+        if not completed:
+            continue
+
+        for node_result in completed:
+            if not node_result or not node_result[0]:
+                continue
+            # Per-node result list: each entry is either a success dict with
+            # "address" or an error dict with "error" key.
+            for attempt in node_result[0]:
+                if isinstance(attempt, dict) and "address" in attempt:
+                    return True
+        # All completed probes reported errors (connection refused, timeout).
+        if len(completed) >= len(data) / 2:
+            return False
 
     return None
 

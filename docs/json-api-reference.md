@@ -61,9 +61,12 @@ Errors are written to **stderr** and the process exits with a non-zero code.
 }
 ```
 
-The `firewall` field is present only when running in `--daemon` mode. Values:
+The `firewall` field is present when running as a daemon (the default). Values:
 `"opened"`, `"already_open"`, `"ufw_inactive"`, `"ufw_not_found"`, `"not_linux"`,
-`"permission_denied"`, `"error"`. Omitted in non-daemon mode.
+`"permission_denied"`, `"error"`. Omitted when `--foreground` is used.
+
+`sz start` blocks as a foreground daemon until SIGTERM/SIGINT by default.
+Pass `--foreground` for the legacy "print and exit" behaviour.
 
 ### `sz stop`
 
@@ -97,8 +100,8 @@ The `firewall` field is present only when running in `--daemon` mode. Values:
   "status": "ok",
   "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b...",
   "host": "203.0.113.10",
-  "port": 9737,
-  "uri": "0234b0c302e8c201e0ffd31580bf9106b625505b...@203.0.113.10:9737",
+  "port": 9735,
+  "uri": "0234b0c302e8c201e0ffd31580bf9106b625505b...@203.0.113.10:9735",
   "network": "bitcoin"
 }
 ```
@@ -110,8 +113,8 @@ With `--check` flag:
   "status": "ok",
   "pubkey": "0234b0c302e8c201e0ffd31580bf9106b625505b...",
   "host": "203.0.113.10",
-  "port": 9737,
-  "uri": "0234b0c302e8c201e0ffd31580bf9106b625505b...@203.0.113.10:9737",
+  "port": 9735,
+  "uri": "0234b0c302e8c201e0ffd31580bf9106b625505b...@203.0.113.10:9735",
   "network": "bitcoin",
   "reachable": true
 }
