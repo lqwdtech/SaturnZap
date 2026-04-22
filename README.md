@@ -19,10 +19,18 @@
 </p>
 
 ```bash
-sz init
-sz channels open --lsp lqwd
-sz pay --invoice lnbc1...
-sz fetch https://api.example.com/data
+# One-click install (uv) — installs 'sz' and 'sz-mcp' globally
+uv tool install saturnzap --find-links https://github.com/lqwdtech/SaturnZap/releases/latest/download/
+
+export SZ_PASSPHRASE="your-secure-passphrase"
+sz setup --auto                  # Generate seed + start node + pick LQWD peer
+sz service install               # Keep the node running across reboots
+sz connect-info --check          # Share the URI with peers/LSPs
+```
+
+```bash
+sz pay --invoice lnbc1... --max-sats 500
+sz fetch https://api.example.com/data --max-sats 100
 ```
 
 ---
@@ -123,7 +131,7 @@ the infrastructure is the business.
 │              Daemon (sz start --daemon)                  │
 │                                                         │
 │  IPC Server (asyncio) ─── Wallet Core                   │
-│  22 JSON methods          node.py, payments.py, l402.py │
+│  23 JSON methods          node.py, payments.py, l402.py │
 │  threading.Lock           liquidity.py, keystore.py     │
 │  0600 socket perms        lqwd.py, config.py, output.py │
 │                           ipc.py                        │
@@ -149,7 +157,7 @@ the infrastructure is the business.
 
 #### Unix Domain Socket IPC
 
-The daemon (`sz start --daemon`) owns the LDK node and exposes 22 methods over a Unix
+The daemon (`sz start`) owns the LDK node and exposes 23 methods over a Unix
 Domain Socket at `~/.local/share/saturnzap/<network>/sz.sock`. CLI commands, the MCP
 server, and OpenClaw automatically detect the daemon and route through IPC — no port
 conflicts, no database locks. If no daemon is running, commands fall back to starting
@@ -207,7 +215,7 @@ configured LSP when needed. Agents can run indefinitely without manual intervent
 | BIP39 | mnemonic | Seed phrase generation |
 | Package manager | uv | Fast, modern Python tooling |
 | MCP server | mcp ≥1.26 | Model Context Protocol for AI agent integration |
-| Testing | pytest | Unit + integration, 415 tests |
+| Testing | pytest | Unit + integration, 395+ tests |
 | Linting | ruff | Fast Python linter and formatter |
 
 ---
@@ -264,13 +272,15 @@ sz --pretty <command>                             # Pretty-print JSON output
 
 ```bash
 sz init                          # Generate seed, start node, peer with nearest LQWD node
+sz init --for-lqwd-faucet        # Mainnet preset: sets a readable alias for LQWDClaw
 sz setup                         # Guided first-run: init + address (idempotent)
 sz setup --auto                  # Non-interactive: init + address + request inbound from LQWD
-sz start                         # Start the node (verify connectivity, then exit)
-sz start --daemon                # Keep node running (for systemd); starts IPC server
+sz start                         # Foreground daemon — blocks until SIGTERM/SIGINT (systemd-friendly)
+sz start --foreground            # Legacy: print status and exit (non-persistent)
 sz stop                          # Stop the node daemon
 sz stop --close-all              # Cooperatively close all channels, then stop
 sz status                        # Node pubkey, sync state, peer/channel counts
+sz connect-info --check          # Connection URI + external reachability probe
 ```
 
 ### Wallet
@@ -290,6 +300,22 @@ sz transactions --limit 20       # Payment history
 sz peers list
 sz peers add <pubkey>@<host>:<port>
 sz peers remove <pubkey>
+
+# Anchor-reserve waiver / 0-conf — applied on next node start.
+# The LQWD fleet is trusted by default on mainnet.
+sz peers trust <pubkey>
+sz peers untrust <pubkey>
+sz peers trusted-list
+```
+
+### Config
+
+```bash
+sz config list                         # Show current config + known keys
+sz config get node.alias
+sz config set node.alias "my-agent"    # Persists to ~/.config/saturnzap/config.toml
+sz config set node.listen_port 9735
+sz config unset esplora_url
 ```
 
 ### Channels
@@ -351,10 +377,13 @@ sz liquidity request-inbound --amount-sats 500000
 ### Service Management
 
 ```bash
-sz service install               # Install and start systemd service
+sz service install               # Install + start systemd unit (recommended for persistence)
 sz service status                # Check service status
 sz service uninstall             # Stop and remove systemd service
 ```
+
+Once installed, the LDK node stays up across reboots and every `sz` command routes
+through the daemon's IPC socket — no per-command startup overhead.
 
 ### MCP Server
 

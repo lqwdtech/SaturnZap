@@ -25,7 +25,7 @@ interface, the wallet core, and the Lightning node runtime.
 └─────────────────────────────┼───────────────────────────────────┘
                               │ Unix Domain Socket (sz.sock)
 ┌─────────────────────────────▼───────────────────────────────────┐
-│                  Daemon (sz start --daemon)                      │
+│                  Daemon (sz start — foreground, blocks)         │
 │                                                                 │
 │  ┌──────────────┐  ┌───────────────────────────────────────┐    │
 │  │  IPC Server   │  │           Wallet Core                 │    │

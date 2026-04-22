@@ -37,16 +37,20 @@ export SZ_PASSPHRASE="agent-passphrase-here"
 # 1. One-command setup (idempotent — safe to re-run)
 sz setup --auto
 
-# 2. Fund the wallet (send bitcoin to this address)
+# 2. Keep the node alive across reboots (recommended)
+sz service install
+
+# 3. Fund the wallet (send bitcoin to this address)
 sz address
 
-# 3. Open a channel when funded
+# 4. Open a channel when funded
 sz channels open --lsp lqwd --amount-sats 100000
 
-# 4. Poll `sz channels list` until `is_usable: true` (channel needs
-#    on-chain confirmations before it becomes usable)
+# 5. Channels from the LQWD fleet are 0-conf on mainnet (trusted peers),
+#    so `is_usable: true` usually appears in seconds. For other peers, poll
+#    `sz channels list` until `is_usable: true`.
 
-# 5. Ready to pay
+# 6. Ready to pay
 sz pay --invoice "lnbc..." --max-sats 5000
 ```
 

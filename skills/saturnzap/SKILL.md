@@ -66,8 +66,14 @@ export SZ_PASSPHRASE="your-secure-passphrase"
 # Initialize wallet (first time only — generates BIP39 seed, starts node)
 sz init
 
+# Or, for the LQWDClaw faucet on mainnet (sets a readable alias):
+sz init --for-lqwd-faucet
+
 # Verify node is running
 sz status
+
+# Recommended: keep the node alive across reboots (systemd)
+sz service install
 ```
 
 Configure in `openclaw.json` to inject the passphrase automatically:
@@ -98,6 +104,10 @@ sz setup --auto
 sz init
 
 # Start node (auto-starts from encrypted seed)
+# NOTE: 'sz start' runs as a foreground daemon and blocks until SIGTERM/SIGINT.
+# For agents/scripts, prefer 'sz service install' (systemd) or let commands
+# auto-start the node on demand. Use 'sz start --foreground' for the legacy
+# "print status and exit" behaviour.
 sz start
 
 # Stop node
@@ -223,7 +233,28 @@ sz peers add "03abc...@1.2.3.4:9735"
 
 # Disconnect a peer
 sz peers remove "03abc..."
+
+# Trusted peers (waive anchor reserve + allow 0-conf channels).
+# The full LQWD fleet is trusted by default on mainnet.
+sz peers trusted-list
+sz peers trust "03abc..."
+sz peers untrust "03abc..."
 ```
+
+## Config
+
+```bash
+# Inspect and edit ~/.config/saturnzap/config.toml programmatically.
+sz config list
+sz config get node.alias
+sz config set node.alias "my-agent"
+sz config set node.listen_port 9735
+sz config unset esplora_url
+```
+
+Changes apply on the next node start. Known keys: `node.alias`,
+`node.listen_port`, `node.min_confirms`, `node.trusted_peers_no_reserve`,
+`esplora_url`, `network`.
 
 ## Liquidity
 

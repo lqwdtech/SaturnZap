@@ -5,6 +5,36 @@ funding it, and making your first payment.
 
 ---
 
+## TL;DR — One-Click Install
+
+For an experienced operator on Ubuntu 22.04+:
+
+```bash
+# 1. Install uv (skip if you already have it)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env
+
+# 2. Install SaturnZap globally (pulls the vendored ldk-node wheel from GitHub Releases)
+uv tool install saturnzap \
+  --find-links https://github.com/lqwdtech/SaturnZap/releases/latest/download/
+
+# 3. Set a strong passphrase (encrypts the seed at rest)
+export SZ_PASSPHRASE="your-secure-passphrase"
+
+# 4. Generate seed, start node, pick nearest LQWD peer, open firewall port
+sz setup --auto
+
+# 5. Keep the node running across reboots
+sz service install
+
+# 6. Share this URI with peers or LSPs
+sz connect-info --check
+```
+
+Back up the 24-word mnemonic printed by step 4. It is the only recovery path.
+
+---
+
 ## Prerequisites
 
 - **OS**: Linux (Ubuntu 22.04+ recommended)
@@ -83,10 +113,22 @@ This does everything in one command:
 - Opens the firewall port (if UFW is active)
 - Generates a receive address
 - Detects your external IP and builds a connection URI
-- Attempts to open a channel to LQWD (skipped if wallet is unfunded)
+- Attempts to open a channel to LQWD (skipped if the wallet is unfunded —
+  you'll see `{"step": "inbound", "skipped": true, "reason": "wallet unfunded..."}`
+  rather than an error)
 
 > **Important:** Back up your 24-word mnemonic from the output. It is the only way
 > to recover your funds if the seed file is lost.
+
+### 2a. (Recommended) Persist the node via systemd
+
+```bash
+sz service install
+```
+
+This installs a user systemd unit that keeps the node running across reboots.
+Every subsequent `sz` command routes through the daemon's IPC socket — no
+per-command startup cost. Skip this step if you're just experimenting.
 
 ### 3. Fund the wallet
 
@@ -224,3 +266,18 @@ export SZ_PRETTY=1
 - [MCP Server Guide](mcp-server.md) — connect AI agents via Model Context Protocol
 - [JSON API Reference](json-api-reference.md) — full output shapes for all commands
 - [Architecture](architecture.md) — design decisions and component overview
+
+### Handy Follow-Up Commands
+
+```bash
+# Manage config without hand-editing TOML
+sz config list
+sz config set node.alias "my-agent-node"
+
+# Manage trusted peers (anchor-reserve waiver + 0-conf)
+sz peers trusted-list            # LQWD fleet is trusted on mainnet by default
+sz peers trust <pubkey>
+
+# Purpose-built init preset for the LQWDClaw faucet
+sz init --for-lqwd-faucet        # Mainnet only
+```
