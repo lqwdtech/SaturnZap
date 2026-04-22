@@ -173,13 +173,13 @@ install; subsequent starts are near-instant.
 
 #### LQWD as default LSP
 
-All 18 LQWD node pubkeys and connection strings are embedded in SaturnZap's default
-config. On `sz init`, the wallet automatically peers with the nearest LQWD node based
-on the system's **timezone offset** — each node has a UTC offset, and `sz` picks the
-one closest to yours. A server in UTC gets LQWD-England, one in EST gets LQWD-Canada,
-one in JST gets LQWD-Japan. Override with `SZ_REGION=CA` or `--region CA` to force a
-specific node. A fresh agent install goes from zero to channel-ready in under five
-minutes.
+On mainnet, fresh installs peer with **LQWD-AI-Grid** by default — LQWD's
+agent-focused LSP node that supports LSPS1 and LSPS2 (JIT channels). The node
+auto-opens a channel back on first peer contact, so a new wallet can start
+receiving inbound liquidity without needing on-chain funds first. The 18-region
+geographic fleet is still embedded and available: set `SZ_REGION=NEAREST` to
+fall back to timezone-based selection (e.g. LQWD-England from UTC, LQWD-Japan
+from JST), or `SZ_REGION=CA` / `--region CA` to pin a specific region.
 
 #### Peer-agnostic after init
 

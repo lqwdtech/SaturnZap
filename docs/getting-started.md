@@ -113,7 +113,12 @@ This does everything in one command:
 - Opens the firewall port (if UFW is active)
 - Generates a receive address
 - Detects your external IP and builds a connection URI
-- Attempts to open a channel to LQWD (skipped if the wallet is unfunded —
+- Peers with **LQWD-AI-Grid** on mainnet — the agent-focused LSP node that supports
+  LSPS1 and LSPS2 (JIT channels) and auto-opens a channel back on first contact, so
+  the wallet starts receiving inbound liquidity without requiring on-chain funds first.
+  Override with `SZ_REGION=NEAREST` to use the geographic fleet, or `SZ_REGION=<code>`
+  (e.g. `JP`, `CA`) to pin a region.
+- Attempts to open an outbound channel to LQWD (skipped if the wallet is unfunded —
   you'll see `{"step": "inbound", "skipped": true, "reason": "wallet unfunded..."}`
   rather than an error)
 

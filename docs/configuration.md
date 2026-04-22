@@ -86,7 +86,7 @@ Or for trusted peers specifically, use `sz peers trust <pubkey>`.
 | `SZ_NETWORK` | Override the Bitcoin network (`bitcoin`, `signet`, `testnet`). Takes precedence over `config.toml` but not the CLI `--network` flag. | — (uses config or `bitcoin`) |
 | `SZ_ESPLORA_URL` | Override the Esplora endpoint. Takes precedence over fallback probing but not `esplora_url` in `config.toml`. | — (auto-probe) |
 | `SZ_PRETTY` | Set to `1` for pretty-printed JSON output. | `0` |
-| `SZ_REGION` | Force a specific LQWD region (e.g. `JP`, `CA`, `US`). | Auto-detect from timezone |
+| `SZ_REGION` | Force a specific LQWD region. On mainnet, the default is `AI` (LQWD-AI-Grid, LSPS1/LSPS2 JIT-capable). Use `NEAREST` to fall back to timezone-based selection across the 18-region geographic fleet, or a country code (e.g. `JP`, `CA`, `US`) to pin a specific region. Signet has no `AI` entry and always uses timezone selection. | `AI` (mainnet) / timezone (signet) |
 | `SZ_ALIAS` | Override the Lightning node alias. Takes precedence over `[node].alias` in `config.toml`. | Deterministic `saturnzap-<hash>` |
 | `SZ_TRUSTED_PEERS_NO_RESERVE` | Comma-separated list of pubkeys to trust for zero-reserve and 0-conf channels. Combined with `[node].trusted_peers_no_reserve` and (on mainnet) the LQWD fleet. | — |
 | `SZ_MCP_MAX_SPEND_SATS` | Global per-request spending cap for MCP `l402_fetch` tool. | No limit |

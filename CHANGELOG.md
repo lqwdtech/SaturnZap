@@ -8,6 +8,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- **LQWD-AI-Grid is now the default mainnet peer.** The agent-focused LQWD node (`028aebfca5…eee3`, region code `AI`) supports LSPS1 and LSPS2 JIT channels and auto-opens a channel back on first peer contact. Fresh wallets can start receiving inbound liquidity without any on-chain funding first. `sz setup --auto` connects to AI-Grid by default on mainnet.
+- **`SZ_REGION=NEAREST`** opts out of the AI-Grid default and falls back to timezone-based selection across the 18-region geographic fleet. `SZ_REGION=AI` explicitly pins AI-Grid; `SZ_REGION=<code>` (e.g. `JP`, `CA`) still pins a specific region. AI-Grid is included in `mainnet_trusted_pubkeys()` so the same 0-conf + anchor-reserve waiver as the rest of the LQWD fleet applies.
+
 ---
 
 ## [1.1.0] — 2026-04-22

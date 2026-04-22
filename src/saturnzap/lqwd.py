@@ -12,8 +12,23 @@ from datetime import UTC, datetime
 from saturnzap.config import get_network
 
 # Each entry: region_code, alias, pubkey, host:port, utc_offset (hours)
+#
+# The special region code ``AI`` denotes the agent-focused LSP node
+# (``LQWD-AI-Grid``). It supports LSPS1 and LSPS2 (JIT channels) and
+# auto-opens a channel back on first peer contact, so fresh wallets can
+# receive inbound liquidity without needing on-chain funds first. On
+# mainnet it is selected by default when ``SZ_REGION`` is unset; use
+# ``SZ_REGION=NEAREST`` to fall back to timezone-based selection from the
+# regional fleet, or ``SZ_REGION=<code>`` to pin a specific region.
 
 MAINNET_NODES: list[dict] = [
+    {
+        "region": "AI",
+        "alias": "LQWD-AI-Grid",
+        "pubkey": "028aebfca56cdc0813ef826f1f0e08adc9a2ce681ec5782c01c22b78e1d6e8eee3",  # noqa: E501  # pragma: allowlist secret
+        "address": "44.202.235.176:26000",
+        "utc_offset": -5,
+    },
     {
         "region": "CA",
         "alias": "LQwD-Canada",
@@ -326,20 +341,37 @@ def _system_utc_offset_hours() -> float:
 
 
 def get_nearest() -> dict:
-    """Return the LQWD node closest to the system's timezone.
+    """Return the LQWD node to peer with.
 
-    Override with the ``SZ_REGION`` environment variable to force a specific
-    region (e.g. ``SZ_REGION=JP``).
+    Selection order:
+
+    1. ``SZ_REGION=<code>`` env var forces a specific region (e.g. ``JP``).
+    2. ``SZ_REGION=NEAREST`` falls back to timezone-based selection from the
+       regional fleet, skipping the agent-focused ``AI`` node.
+    3. Otherwise, on mainnet, prefer the ``AI`` node (LQWD-AI-Grid,
+       LSPS1/LSPS2 JIT-capable) when present.
+    4. Otherwise pick the node with the closest UTC offset to the local
+       system (signet, or mainnet without an ``AI`` entry).
     """
     nodes = _nodes_for_network()
     override = os.environ.get("SZ_REGION", "").strip().upper()
-    if override:
+
+    if override and override != "NEAREST":
         matches = [n for n in nodes if n["region"] == override]
         if matches:
             return matches[0]
 
+    if override != "NEAREST":
+        ai_matches = [n for n in nodes if n["region"] == "AI"]
+        if ai_matches:
+            return ai_matches[0]
+
+    # Timezone fallback — exclude the non-geographic AI node.
+    geographic = [n for n in nodes if n["region"] != "AI"]
+    if not geographic:
+        geographic = nodes
     local_offset = _system_utc_offset_hours()
     return min(
-        nodes,
+        geographic,
         key=lambda n: abs(n["utc_offset"] - local_offset),
     )
