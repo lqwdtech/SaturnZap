@@ -11,6 +11,8 @@
   Self-sovereign. Runs its own Lightning node. No full Bitcoin node required.
 </p>
 
+<!-- mcp-name: io.github.lqwdtech/saturnzap -->
+
 <p align="center">
   <a href="https://github.com/lqwdtech/SaturnZap/actions/workflows/ci.yml"><img src="https://github.com/lqwdtech/SaturnZap/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://pypi.org/project/saturnzap/"><img src="https://img.shields.io/pypi/v/saturnzap.svg" alt="PyPI"></a>
