@@ -482,7 +482,8 @@ def test_pay_invoice_routes_via_ipc(tmp_path, monkeypatch):
             result = payments.pay_invoice("lnbc1...")
         assert result == {"payment_id": "abc"}
         mock.assert_called_once_with("pay_invoice",
-                                     {"invoice_str": "lnbc1...", "max_sats": None})
+                                     {"invoice_str": "lnbc1...", "max_sats": None,
+                                      "wait": True, "wait_timeout": 30})
     finally:
         node_mod._ipc_mode = False
 

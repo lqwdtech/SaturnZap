@@ -304,6 +304,7 @@ def test_get_balance_no_warnings_with_healthy_channels(mock_ldk_node):
     """Balance should not include warnings when channels are healthy."""
     ch = SimpleNamespace(
         channel_id="ch01",
+        user_channel_id="ch01",
         counterparty_node_id="02peer",
         channel_value_sats=100_000,
         outbound_capacity_msat=50_000_000,
@@ -350,6 +351,7 @@ def test_list_peers(mock_ldk_node):
 def _make_channel(is_usable, is_ready, **kwargs):
     defaults = {
         "channel_id": "ch001",
+        "user_channel_id": "ch001",
         "counterparty_node_id": "02peer",
         "channel_value_sats": 100_000,
         "outbound_capacity_msat": 50_000_000,
@@ -405,7 +407,7 @@ def test_list_channels(mock_ldk_node):
 
 def test_open_channel(mock_ldk_node):
     mock_ldk_node.open_channel.return_value = "ucid001"
-    chan = SimpleNamespace(channel_id="ucid001")
+    chan = SimpleNamespace(channel_id="ucid001", user_channel_id="ucid001")
     mock_ldk_node.list_channels.return_value = [chan]
     node._node = mock_ldk_node
 
@@ -420,7 +422,7 @@ def test_open_channel(mock_ldk_node):
 
 def test_open_announced_channel(mock_ldk_node):
     mock_ldk_node.open_announced_channel.return_value = "ucid002"
-    chan = SimpleNamespace(channel_id="ucid002")
+    chan = SimpleNamespace(channel_id="ucid002", user_channel_id="ucid002")
     mock_ldk_node.list_channels.return_value = [chan]
     node._node = mock_ldk_node
 
@@ -492,6 +494,9 @@ def test_open_channel_rejected_no_log(mock_ldk_node, tmp_path):
 
 def test_close_channel(mock_ldk_node):
     node._node = mock_ldk_node
+    mock_ldk_node.list_channels.return_value = [
+        SimpleNamespace(channel_id="ch001", user_channel_id="ch001"),
+    ]
 
     with patch("saturnzap.node._require_node", return_value=mock_ldk_node):
         node.close_channel("ch001", "02peer")
@@ -501,6 +506,9 @@ def test_close_channel(mock_ldk_node):
 
 def test_force_close_channel(mock_ldk_node):
     node._node = mock_ldk_node
+    mock_ldk_node.list_channels.return_value = [
+        SimpleNamespace(channel_id="ch001", user_channel_id="ch001"),
+    ]
 
     with patch("saturnzap.node._require_node", return_value=mock_ldk_node):
         node.force_close_channel("ch001", "02peer", reason="test")

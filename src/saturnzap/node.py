@@ -588,6 +588,7 @@ def _channel_to_dict(c) -> dict:
 
     return {
         "channel_id": str(c.channel_id),
+        "user_channel_id": str(c.user_channel_id),
         "counterparty_node_id": c.counterparty_node_id,
         "channel_value_sats": c.channel_value_sats,
         "outbound_capacity_msat": c.outbound_capacity_msat,
@@ -600,6 +601,20 @@ def _channel_to_dict(c) -> dict:
         "funding_txo": str(c.funding_txo) if c.funding_txo else None,
         "status_reason": status_reason,
     }
+
+
+def _resolve_user_channel_id(node, channel_id: str) -> str | None:
+    """Resolve a caller-supplied channel identifier to LDK's user_channel_id.
+
+    Accepts either the funding-tx ``channel_id`` (the hex hash shown in
+    ``sz channels list``) or LDK's numeric ``user_channel_id``. Returns the
+    matching user_channel_id, or ``None`` if no channel matches.
+    """
+    target = str(channel_id)
+    for c in node.list_channels():
+        if str(c.channel_id) == target or str(c.user_channel_id) == target:
+            return str(c.user_channel_id)
+    return None
 
 
 def list_channels() -> list[dict]:
@@ -634,11 +649,16 @@ def wait_channel_ready(
     node = _require_node()
     deadline = time.monotonic() + timeout
 
+    def _matches(c) -> bool:
+        if not channel_id:
+            return True
+        return str(c.channel_id) == channel_id or str(c.user_channel_id) == channel_id
+
     while time.monotonic() < deadline:
         node.sync_wallets()
         channels = node.list_channels()
         for c in channels:
-            if channel_id and str(c.channel_id) != channel_id:
+            if not _matches(c):
                 continue
             if c.is_usable:
                 return {
@@ -652,7 +672,7 @@ def wait_channel_ready(
     channels = node.list_channels()
     target = None
     for c in channels:
-        if channel_id and str(c.channel_id) != channel_id:
+        if not _matches(c):
             continue
         target = _channel_to_dict(c)
         break
@@ -747,7 +767,9 @@ def open_channel(
     found = False
     while time.monotonic() < deadline:
         try:
-            channel_ids = [str(c.channel_id) for c in node.list_channels()]
+            # Compare against user_channel_id since open_channel() returns
+            # a UserChannelId, not the funding-tx channel_id.
+            channel_ids = [str(c.user_channel_id) for c in node.list_channels()]
         except Exception:  # noqa: BLE001
             # If list_channels fails transiently, treat as "still pending"
             # and keep polling; we'll fall through to the not-found path if
@@ -779,7 +801,11 @@ def open_channel(
 
 
 def close_channel(channel_id: str, counterparty_node_id: str) -> None:
-    """Cooperatively close a channel."""
+    """Cooperatively close a channel.
+
+    Accepts either the funding-tx ``channel_id`` or LDK's numeric
+    ``user_channel_id``. Resolves to the user_channel_id LDK requires.
+    """
     if _use_ipc():
         _ipc(
             "close_channel",
@@ -787,13 +813,26 @@ def close_channel(channel_id: str, counterparty_node_id: str) -> None:
             counterparty_node_id=counterparty_node_id,
         )
         return
-    _require_node().close_channel(channel_id, counterparty_node_id)
+    from saturnzap.output import CommandError
+    n = _require_node()
+    ucid = _resolve_user_channel_id(n, channel_id)
+    if ucid is None:
+        raise CommandError(
+            "INVALID_CHANNEL_ID",
+            f"No channel matches {channel_id!r}. Use 'sz channels list' "
+            "to see channel_id / user_channel_id values.",
+        )
+    n.close_channel(ucid, counterparty_node_id)
 
 
 def force_close_channel(
     channel_id: str, counterparty_node_id: str, reason: str | None = None,
 ) -> None:
-    """Force-close a channel."""
+    """Force-close a channel.
+
+    Accepts either the funding-tx ``channel_id`` or LDK's numeric
+    ``user_channel_id``.
+    """
     if _use_ipc():
         _ipc(
             "force_close_channel",
@@ -801,4 +840,13 @@ def force_close_channel(
             reason=reason,
         )
         return
-    _require_node().force_close_channel(channel_id, counterparty_node_id, reason)
+    from saturnzap.output import CommandError
+    n = _require_node()
+    ucid = _resolve_user_channel_id(n, channel_id)
+    if ucid is None:
+        raise CommandError(
+            "INVALID_CHANNEL_ID",
+            f"No channel matches {channel_id!r}. Use 'sz channels list' "
+            "to see channel_id / user_channel_id values.",
+        )
+    n.force_close_channel(ucid, counterparty_node_id, reason)

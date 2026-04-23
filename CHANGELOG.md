@@ -10,6 +10,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [1.3.0] — 2026-04-23
+
+Agent-safety release. Addresses the highest-severity items from the LQWDClaw v2 testing pass: payments now wait for terminal status before returning ok, channel close accepts either id form, mainnet close requires confirmation, and `sz init` can keep the mnemonic out of stdout.
+
+### Added
+
+- **`sz pay` and `sz keysend` wait for payment terminal status by default.** After LDK accepts the send, the wallet polls until the payment reaches `succeeded`, `failed`, or a 30s timeout. Failed payments now return `PAYMENT_FAILED` with the LDK reason instead of `status: ok`. Pass `--no-wait` for the legacy fire-and-forget behaviour, or `--wait-timeout SECS` to adjust. The success response gains a `payment_status` field. (Addresses agent feedback #13.)
+- **`sz init --backup-to PATH`** writes the BIP39 mnemonic to a mode-0600 file and omits it from the JSON response. Recommended for agent hosts where stdout lands in tool-call transcripts. **`sz init --no-mnemonic-stdout`** is a strict mode that fails unless `--backup-to` is also passed. (Addresses agent feedback #21.)
+- **`sz init --alias TEXT`** overrides the node alias written to `config.toml` during initialisation, on top of any preset. (Addresses agent feedback #20.)
+- **`sz channels close --yes / -y`** skips the mainnet confirmation prompt for non-interactive shells. Matches the existing flag on `pay`, `keysend`, and `send`. (Addresses agent feedback #15.)
+- **Channel dicts now include `user_channel_id`** alongside `channel_id` so callers can choose either identifier without re-querying.
+
+### Changed
+
+- **`sz channels close` and `sz channels close --force` accept either `channel_id` or `user_channel_id`.** Previously the funding-tx hash returned by `sz channels list` couldn't be used to close — only the numeric `user_channel_id` LDK exposes. The wallet now resolves both forms internally. Returns `INVALID_CHANNEL_ID` if neither matches. (Addresses agent feedback #12.)
+- **Install command updated to use `releases/expanded_assets/v1.3.0`.** The previous `releases/latest/download/` form returns an HTML tag page that uv refuses to parse as a package index. The new URL serves a real listing of the wheels attached to the release. README, getting-started docs, the SaturnZap skill, and the in-binary error message all updated. (Addresses agent feedback #19.)
+
+### Notes
+
+- Items #14 (stale `lightning_sats` after sweep), #16 (chain-sync health field), #17 (peer persistence), #22 (preset values in `sz config list`), #23 (`peers connect` alias), and #24 (silent `SZ_PASSPHRASE` dependency in `sz service install`) are tracked for follow-up patches.
+- Item #18 (publishing `ldk-node` to PyPI) remains an upstream constraint. The `--find-links` install path documented above is the supported workaround.
+
+---
+
 ## [1.2.0] — 2026-04-22
 
 Agent-focused LSP default. Fresh wallets can now receive inbound liquidity without any on-chain funding first, thanks to LQWD's new LSPS1/LSPS2 JIT-capable node. Also includes docs alignment fixes surfaced by an external audit.

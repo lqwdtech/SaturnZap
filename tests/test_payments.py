@@ -158,6 +158,7 @@ def test_pay_invoice_success(mock_node):
     paid = SimpleNamespace(
         id="payid123",
         kind=SimpleNamespace(preimage="deadbeef01234567"),
+        status="PaymentStatus.SUCCEEDED",
     )
     mock_node.list_payments.return_value = [paid]
 
@@ -210,7 +211,7 @@ def test_pay_invoice_no_amount_skips_balance_check(mock_node):
         patch("saturnzap.payments._require_node", return_value=mock_node),
         patch("ldk_node.Bolt11Invoice.from_str", return_value=mock_inv),
     ):
-        result = payments.pay_invoice("lntbs_var...")
+        result = payments.pay_invoice("lntbs_var...", wait=False)
 
     assert result["payment_id"] == "pid"
     assert result["amount_msat"] is None
@@ -268,6 +269,8 @@ def test_extract_preimage_none_when_preimage_not_set():
 
 def test_keysend_success(mock_node):
     mock_node.spontaneous_payment.return_value.send.return_value = "ksend_id"
+    paid = SimpleNamespace(id="ksend_id", status="PaymentStatus.SUCCEEDED")
+    mock_node.list_payments.return_value = [paid]
 
     with patch("saturnzap.payments._require_node", return_value=mock_node):
         result = payments.keysend("02abc...", 1000)
@@ -298,6 +301,7 @@ def _make_channel(
 ) -> dict:
     return {
         "channel_id": "ch01",
+        "user_channel_id": "ch01",
         "counterparty_node_id": peer,
         "channel_value_sats": value_sats,
         "outbound_capacity_msat": outbound_msat,
@@ -320,6 +324,7 @@ def test_pay_invoice_includes_warnings_when_low(mock_node):
     paid = SimpleNamespace(
         id="payid1",
         kind=SimpleNamespace(preimage="deadbeef"),
+        status="PaymentStatus.SUCCEEDED",
     )
     mock_node.list_payments.return_value = [paid]
 
@@ -345,6 +350,7 @@ def test_pay_invoice_no_warnings_when_healthy(mock_node):
     paid = SimpleNamespace(
         id="payid2",
         kind=SimpleNamespace(preimage="deadbeef"),
+        status="PaymentStatus.SUCCEEDED",
     )
     mock_node.list_payments.return_value = [paid]
 
@@ -363,6 +369,8 @@ def test_pay_invoice_no_warnings_when_healthy(mock_node):
 def test_keysend_includes_warnings_when_low(mock_node):
     """keysend should include warnings when outbound capacity is low."""
     mock_node.spontaneous_payment.return_value.send.return_value = "ksend_w"
+    paid = SimpleNamespace(id="ksend_w", status="PaymentStatus.SUCCEEDED")
+    mock_node.list_payments.return_value = [paid]
 
     low_channel = _make_channel(outbound_msat=10_000_000)  # 10%
     mock_node.list_channels.return_value = [SimpleNamespace(**low_channel)]
@@ -379,6 +387,8 @@ def test_keysend_includes_warnings_when_low(mock_node):
 def test_keysend_no_warnings_when_healthy(mock_node):
     """keysend should not include warnings when channels are healthy."""
     mock_node.spontaneous_payment.return_value.send.return_value = "ksend_h"
+    paid = SimpleNamespace(id="ksend_h", status="PaymentStatus.SUCCEEDED")
+    mock_node.list_payments.return_value = [paid]
 
     healthy_channel = _make_channel(outbound_msat=50_000_000)  # 50%
     mock_node.list_channels.return_value = [SimpleNamespace(**healthy_channel)]

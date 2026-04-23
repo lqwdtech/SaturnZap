@@ -16,6 +16,7 @@ runner = CliRunner()
 def _make_channel(channel_id="ch01", is_usable=True, is_ready=True):
     return SimpleNamespace(
         channel_id=channel_id,
+        user_channel_id=channel_id,
         counterparty_node_id="03" + "cd" * 32,
         channel_value_sats=100_000,
         outbound_capacity_msat=50_000_000,

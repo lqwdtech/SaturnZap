@@ -12,6 +12,77 @@ DEFAULT_INVOICE_EXPIRY_SECS = 3600  # 1 hour
 _PREIMAGE_POLL_ATTEMPTS = 10
 _PREIMAGE_POLL_INTERVAL = 0.5  # seconds
 
+# Default timeout for waiting on a payment to reach a terminal state
+# (succeeded / failed). 30s is long enough to cover normal LN paths but
+# short enough that an agent in a request loop isn't blocked indefinitely
+# when a peer goes silent.
+DEFAULT_PAYMENT_WAIT_SECS = 30
+_PAYMENT_POLL_INTERVAL = 0.5  # seconds
+
+
+def _payment_status_str_safe(status) -> str:
+    """Internal-use status conversion that doesn't need module-level helpers."""
+    s = str(status)
+    if "SUCCEEDED" in s:
+        return "succeeded"
+    if "PENDING" in s:
+        return "pending"
+    if "FAILED" in s:
+        return "failed"
+    return "unknown"
+
+
+def _failure_reason(payment) -> str | None:
+    """Best-effort extraction of a failure reason from an LDK payment record."""
+    for attr in ("failure_reason", "failure"):
+        val = getattr(payment, attr, None)
+        if val is not None:
+            return str(val)
+    return None
+
+
+def _wait_for_payment_terminal(
+    node, payment_id: object, timeout: int = DEFAULT_PAYMENT_WAIT_SECS,
+) -> dict:
+    """Poll list_payments for a terminal status on *payment_id*.
+
+    Returns a dict with one of these shapes:
+      {"status": "succeeded"}
+      {"status": "failed", "failure_reason": "..."}
+      {"status": "pending", "message": "..."}
+
+    Never raises — a missing payment is treated as still-pending.
+    """
+    import time
+
+    pid_str = str(payment_id)
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            for p in node.list_payments():
+                if str(p.id) != pid_str:
+                    continue
+                status = _payment_status_str_safe(p.status)
+                if status == "succeeded":
+                    return {"status": "succeeded"}
+                if status == "failed":
+                    reason = _failure_reason(p)
+                    out: dict = {"status": "failed"}
+                    if reason:
+                        out["failure_reason"] = reason
+                    return out
+                break  # found, still pending
+        except Exception:  # noqa: BLE001, S110
+            pass  # transient errors — keep polling
+        time.sleep(_PAYMENT_POLL_INTERVAL)
+    return {
+        "status": "pending",
+        "message": (
+            f"Payment did not reach a terminal state within {timeout}s. "
+            f"Check 'sz transactions' for the final status."
+        ),
+    }
+
 
 def _extract_preimage(node: object, payment_id: object) -> str | None:
     """Look up a completed payment and return its preimage hex string.
@@ -89,10 +160,25 @@ def create_variable_invoice(
     }
 
 
-def pay_invoice(invoice_str: str, max_sats: int | None = None) -> dict:
-    """Pay a BOLT11 invoice. Optionally enforce a spending cap."""
+def pay_invoice(
+    invoice_str: str,
+    max_sats: int | None = None,
+    *,
+    wait: bool = True,
+    wait_timeout: int = DEFAULT_PAYMENT_WAIT_SECS,
+) -> dict:
+    """Pay a BOLT11 invoice. Optionally enforce a spending cap.
+
+    By default this waits for the payment to reach a terminal state
+    (succeeded / failed) before returning. Pass ``wait=False`` to return
+    immediately after LDK accepts the send (legacy fire-and-forget mode).
+    """
     if _use_ipc():
-        return _ipc("pay_invoice", invoice_str=invoice_str, max_sats=max_sats)  # type: ignore[return-value]
+        return _ipc(  # type: ignore[return-value]
+            "pay_invoice",
+            invoice_str=invoice_str, max_sats=max_sats,
+            wait=wait, wait_timeout=wait_timeout,
+        )
     from saturnzap import output
 
     node = _require_node()
@@ -132,6 +218,21 @@ def pay_invoice(invoice_str: str, max_sats: int | None = None) -> dict:
         "preimage": preimage,
     }
 
+    # Wait for terminal status so we don't return ok for a payment that
+    # silently failed milliseconds later.
+    if wait:
+        terminal = _wait_for_payment_terminal(node, payment_id, wait_timeout)
+        result["payment_status"] = terminal["status"]
+        if terminal["status"] == "failed":
+            from saturnzap.output import CommandError
+            reason = terminal.get("failure_reason") or "unknown"
+            raise CommandError(
+                "PAYMENT_FAILED",
+                f"Payment failed: {reason}",
+            )
+        if terminal["status"] == "pending":
+            result["message"] = terminal["message"]
+
     # Post-payment capacity warnings
     from saturnzap import liquidity
     from saturnzap.node import _channel_to_dict
@@ -144,14 +245,29 @@ def pay_invoice(invoice_str: str, max_sats: int | None = None) -> dict:
     return result
 
 
-def keysend(pubkey: str, amount_sats: int) -> dict:
-    """Send a spontaneous (keysend) payment to *pubkey*."""
+def keysend(
+    pubkey: str,
+    amount_sats: int,
+    *,
+    wait: bool = True,
+    wait_timeout: int = DEFAULT_PAYMENT_WAIT_SECS,
+) -> dict:
+    """Send a spontaneous (keysend) payment to *pubkey*.
+
+    By default this waits for the payment to reach a terminal state
+    (succeeded / failed) before returning. Pass ``wait=False`` for
+    fire-and-forget behaviour.
+    """
     from saturnzap import output
 
     if amount_sats <= 0:
         output.error("INVALID_ARGS", "amount_sats must be positive.")
     if _use_ipc():
-        return _ipc("keysend", pubkey=pubkey, amount_sats=amount_sats)  # type: ignore[return-value]
+        return _ipc(  # type: ignore[return-value]
+            "keysend",
+            pubkey=pubkey, amount_sats=amount_sats,
+            wait=wait, wait_timeout=wait_timeout,
+        )
 
     node = _require_node()
 
@@ -172,6 +288,21 @@ def keysend(pubkey: str, amount_sats: int) -> dict:
         "pubkey": pubkey,
         "amount_sats": amount_sats,
     }
+
+    # Wait for terminal status — keysend without this returned ok for
+    # payments that LDK rejected milliseconds later (fund-accounting bug).
+    if wait:
+        terminal = _wait_for_payment_terminal(node, payment_id, wait_timeout)
+        result["payment_status"] = terminal["status"]
+        if terminal["status"] == "failed":
+            from saturnzap.output import CommandError
+            reason = terminal.get("failure_reason") or "unknown"
+            raise CommandError(
+                "PAYMENT_FAILED",
+                f"Keysend failed: {reason}",
+            )
+        if terminal["status"] == "pending":
+            result["message"] = terminal["message"]
 
     # Post-payment capacity warnings
     from saturnzap import liquidity

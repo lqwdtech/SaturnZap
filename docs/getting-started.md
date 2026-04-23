@@ -16,7 +16,7 @@ source $HOME/.local/bin/env
 
 # 2. Install SaturnZap globally (pulls the vendored ldk-node wheel from GitHub Releases)
 uv tool install saturnzap \
-  --find-links https://github.com/lqwdtech/SaturnZap/releases/latest/download/
+  --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.0
 
 # 3. Set a strong passphrase (encrypts the seed at rest)
 export SZ_PASSPHRASE="your-secure-passphrase"
@@ -69,11 +69,11 @@ sz --help
 ```bash
 # ldk-node is not yet on PyPI — use --find-links for the vendored wheel
 pip install saturnzap \
-  --find-links https://github.com/lqwdtech/SaturnZap/releases/latest/download/
+  --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.0
 
 # Or with uv
 uv pip install saturnzap \
-  --find-links https://github.com/lqwdtech/SaturnZap/releases/latest/download/
+  --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.0
 ```
 
 ---

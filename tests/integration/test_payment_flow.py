@@ -67,6 +67,14 @@ def test_pay_invoice_then_verify_in_history(mock_node):
     invoice_mock.payment_hash.return_value = "out_hash_456"
 
     mock_node.bolt11_payment().send.return_value = "payment_id_out"
+    # Provide terminal-status payment so wait completes immediately.
+    sent = SimpleNamespace(
+        id="payment_id_out",
+        kind=SimpleNamespace(preimage="pre_out"),
+        status="PaymentStatus.SUCCEEDED",
+    )
+    mock_node.list_payments.return_value = [sent]
+    mock_node.list_channels.return_value = []
 
     with (
         patch("saturnzap.payments._require_node", return_value=mock_node),

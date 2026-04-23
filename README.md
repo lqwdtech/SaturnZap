@@ -22,7 +22,7 @@
 
 ```bash
 # One-click install (uv) — installs 'sz' and 'sz-mcp' globally
-uv tool install saturnzap --find-links https://github.com/lqwdtech/SaturnZap/releases/latest/download/
+uv tool install saturnzap --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.0
 
 export SZ_PASSPHRASE="your-secure-passphrase"
 sz setup --auto                  # Generate seed + start node + pick LQWD peer
@@ -615,10 +615,10 @@ sz --help
 
 ```bash
 # ldk-node is not yet on PyPI — use --find-links to pull it from GitHub Releases
-pip install saturnzap --find-links https://github.com/lqwdtech/SaturnZap/releases/latest/download/
+pip install saturnzap --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.0
 
 # Or with uv
-uv pip install saturnzap --find-links https://github.com/lqwdtech/SaturnZap/releases/latest/download/
+uv pip install saturnzap --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.0
 ```
 
 ---

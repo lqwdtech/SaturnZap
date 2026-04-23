@@ -37,9 +37,9 @@ def main_cli() -> None:
             "error: ldk-node is not installed.\n"
             "Install it from the vendored wheel:\n"
             "  pip install vendor/ldk_node-0.7.0-py3-none-any.whl\n"
-            "Or with --find-links from GitHub Releases:\n"
-            "  pip install saturnzap --find-links "
-            "https://github.com/lqwdtech/SaturnZap/releases/latest/download/",
+            "Or install both saturnzap and ldk-node from GitHub Releases:\n"
+            "  uv tool install saturnzap --find-links "
+            "https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.0",
             file=sys.stderr,
         )
         raise SystemExit(1) from None
@@ -139,10 +139,49 @@ def init(
             ),
         ),
     ] = False,
+    alias: Annotated[
+        str | None,
+        typer.Option(
+            "--alias",
+            help=(
+                "Override the node alias written to config.toml. Applies on "
+                "top of any preset."
+            ),
+        ),
+    ] = None,
+    backup_to: Annotated[
+        str | None,
+        typer.Option(
+            "--backup-to",
+            help=(
+                "Write the BIP39 mnemonic to this file (mode 0600) and omit "
+                "it from the JSON response. Recommended for agent hosts."
+            ),
+        ),
+    ] = None,
+    no_mnemonic_stdout: Annotated[
+        bool,
+        typer.Option(
+            "--no-mnemonic-stdout",
+            help=(
+                "Strict mode: do not include the mnemonic in the JSON response. "
+                "Requires --backup-to so the seed isn't lost."
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Generate seed, encrypt it, and start the Lightning node."""
+    import os
+    from pathlib import Path
+
     from saturnzap import keystore
     from saturnzap import node as node_mod
+
+    if no_mnemonic_stdout and not backup_to:
+        output.error(
+            "INVALID_ARGS",
+            "--no-mnemonic-stdout requires --backup-to so the seed isn't lost.",
+        )
 
     if keystore.is_initialized():
         output.error("ALREADY_INITIALIZED", "Wallet already initialized. Seed exists.")
@@ -150,6 +189,21 @@ def init(
     mnemonic = keystore.generate_mnemonic()
     passphrase = keystore.get_passphrase(confirm=True)
     path = keystore.save_encrypted(mnemonic, passphrase)
+
+    backup_path: Path | None = None
+    if backup_to:
+        backup_path = Path(backup_to).expanduser().resolve()
+        backup_path.parent.mkdir(parents=True, exist_ok=True)
+        # Write with restrictive permissions to prevent races between create
+        # and chmod. O_EXCL also avoids overwriting an existing file silently.
+        flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        fd = os.open(str(backup_path), flags, 0o600)
+        try:
+            os.write(fd, (mnemonic + "\n").encode("utf-8"))
+        finally:
+            os.close(fd)
+        # Defensive: ensure mode is 0600 even if umask widened it.
+        os.chmod(backup_path, 0o600)
 
     preset_applied = False
     if for_lqwd_faucet:
@@ -163,19 +217,31 @@ def init(
         # LQWD fleet + LND pubkey are already trusted by default on mainnet
         # (see node._resolve_trusted_peers). The preset also saves a readable
         # alias so LQWDClaw shows something useful.
-        preset_alias = "saturnzap-lqwdclaw"
-        save_node_config_key("alias", preset_alias)
+        save_node_config_key("alias", "saturnzap-lqwdclaw")
         preset_applied = True
+
+    if alias is not None:
+        from saturnzap.config import save_node_config_key
+
+        save_node_config_key("alias", alias)
 
     # Start the node with the fresh mnemonic
     n = node_mod.start(mnemonic)
 
-    resp = {
-        "mnemonic": mnemonic,
+    include_mnemonic = not (no_mnemonic_stdout or backup_to)
+    resp: dict = {
         "pubkey": n.node_id(),
         "seed_path": str(path),
         "message": "Wallet initialized. WRITE DOWN YOUR MNEMONIC AND STORE IT SAFELY.",
     }
+    if include_mnemonic:
+        resp["mnemonic"] = mnemonic
+    if backup_path is not None:
+        resp["backup_path"] = str(backup_path)
+        resp["message"] = (
+            f"Wallet initialized. Mnemonic written to {backup_path} "
+            "(mode 0600). Store this file safely \u2014 it is the only recovery path."
+        )
     if preset_applied:
         resp["preset"] = "lqwd-faucet"
         resp["next_steps"] = [
@@ -580,12 +646,31 @@ def pay(
         bool,
         typer.Option("--yes", "-y", help="Skip mainnet confirmation prompt."),
     ] = False,
+    no_wait: Annotated[
+        bool,
+        typer.Option(
+            "--no-wait",
+            help=(
+                "Return immediately after LDK accepts the send instead of "
+                "waiting for the payment to succeed or fail."
+            ),
+        ),
+    ] = False,
+    wait_timeout: Annotated[
+        int,
+        typer.Option(
+            "--wait-timeout",
+            help="Seconds to wait for payment to reach a terminal state.",
+        ),
+    ] = 30,
 ) -> None:
     """Pay a BOLT11 invoice."""
     from saturnzap import payments
 
     _confirm_mainnet(yes)
-    info = payments.pay_invoice(invoice_str, max_sats)
+    info = payments.pay_invoice(
+        invoice_str, max_sats, wait=not no_wait, wait_timeout=wait_timeout,
+    )
     output.ok(**info, message="Payment sent.")
 
 
@@ -603,12 +688,31 @@ def keysend(
         bool,
         typer.Option("--yes", "-y", help="Skip mainnet confirmation prompt."),
     ] = False,
+    no_wait: Annotated[
+        bool,
+        typer.Option(
+            "--no-wait",
+            help=(
+                "Return immediately after LDK accepts the send instead of "
+                "waiting for the payment to succeed or fail."
+            ),
+        ),
+    ] = False,
+    wait_timeout: Annotated[
+        int,
+        typer.Option(
+            "--wait-timeout",
+            help="Seconds to wait for payment to reach a terminal state.",
+        ),
+    ] = 30,
 ) -> None:
     """Send a spontaneous keysend payment."""
     from saturnzap import payments
 
     _confirm_mainnet(yes)
-    info = payments.keysend(pubkey, amount_sats)
+    info = payments.keysend(
+        pubkey, amount_sats, wait=not no_wait, wait_timeout=wait_timeout,
+    )
     output.ok(**info, message="Keysend sent.")
 
 
@@ -932,10 +1036,15 @@ def channels_close(
     force: Annotated[
         bool, typer.Option(help="Force-close the channel"),
     ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Skip mainnet confirmation prompt."),
+    ] = False,
 ) -> None:
     """Close a channel cooperatively or by force."""
     from saturnzap import node as node_mod
 
+    _confirm_mainnet(yes)
     if force:
         node_mod.force_close_channel(channel_id, counterparty)
         output.ok(channel_id=channel_id, message="Force-close initiated.")
