@@ -7,8 +7,8 @@
 </p>
 
 <p align="center">
-  <strong>A CLI-first, non-custodial Lightning Network wallet built for autonomous AI agents.</strong><br>
-  Ultra-lightweight. Self-sovereign. No full Bitcoin node required.
+  <strong>A lightweight, CLI-first, non-custodial Lightning Network wallet built for autonomous AI agents.</strong><br>
+  Self-sovereign. Runs its own Lightning node. No full Bitcoin node required.
 </p>
 
 <p align="center">
