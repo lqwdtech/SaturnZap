@@ -3,7 +3,7 @@ name: saturnzap
 description: "Non-custodial Lightning wallet for AI agents via `sz` CLI: send/receive sats, pay invoices, auto-pay HTTP 402 (L402), manage channels and liquidity. Use when: (1) paying for API access with Lightning, (2) creating or paying BOLT11 invoices, (3) checking wallet balance or channel health, (4) managing peers and channels. NOT for: on-chain-only Bitcoin transactions, custodial Lightning services."
 homepage: https://github.com/lqwdtech/SaturnZap
 metadata:
-  { "openclaw": { "emoji": "⚡", "os": ["linux"], "requires": { "bins": ["sz"], "env": ["SZ_PASSPHRASE"] }, "primaryEnv": "SZ_PASSPHRASE", "install": [{ "id": "uv", "kind": "uv", "package": "saturnzap", "bins": ["sz"], "label": "Install SaturnZap (uv)" }] } }
+  { "openclaw": { "emoji": "⚡", "os": ["linux"], "requires": { "bins": ["sz"], "env": ["SZ_PASSPHRASE"] }, "optionalEnv": ["SZ_MCP_MAX_SPEND_SATS", "SZ_CLI_MAX_SPEND_SATS", "SZ_NETWORK", "SZ_REGION", "SZ_MAINNET_CONFIRM", "SZ_PRETTY", "SZ_ALIAS", "SZ_TRUSTED_PEERS_NO_RESERVE", "SZ_ESPLORA_URL"], "primaryEnv": "SZ_PASSPHRASE", "install": [{ "id": "uv", "kind": "uv", "package": "saturnzap", "bins": ["sz"], "label": "Install SaturnZap (uv)" }] } }
 ---
 
 # SaturnZap Lightning Wallet
@@ -65,10 +65,15 @@ uv tool install saturnzap \
 export SZ_PASSPHRASE="your-secure-passphrase"
 
 # Initialize wallet (first time only — generates BIP39 seed, starts node)
-sz init
+# RECOMMENDED for agent hosts: write the mnemonic to a mode-0600 file instead
+# of stdout, so it never lands in tool-call transcripts or orchestrator logs.
+sz init --backup-to ~/.saturnzap-mnemonic --no-mnemonic-stdout
 
 # Or, for the LQWDClaw faucet on mainnet (sets a readable alias):
-sz init --for-lqwd-faucet
+sz init --for-lqwd-faucet --backup-to ~/.saturnzap-mnemonic --no-mnemonic-stdout
+
+# Interactive operators can omit the flags; the mnemonic prints once for backup:
+# sz init
 
 # Verify node is running
 sz status
@@ -77,20 +82,35 @@ sz status
 sz service install
 ```
 
-Configure in `openclaw.json` to inject the passphrase automatically:
+### Passphrase injection — pick the safest available option
 
-```json
-{
-  "skills": {
-    "entries": {
-      "saturnzap": {
-        "enabled": true,
-        "env": { "SZ_PASSPHRASE": "your-secure-passphrase" }
-      }
-    }
-  }
-}
-```
+In order of preference:
+
+1. **Systemd `EnvironmentFile=` (recommended for production agents).**
+   `sz service install` writes `/etc/saturnzap/saturnzap.env` (mode 0600,
+   owner-only) and references it from the systemd unit. The unit file itself
+   contains no secrets.
+2. **Secret store / environment injection** at the agent runtime layer
+   (Vault, 1Password CLI, doppler, AWS Secrets Manager, etc.) writing
+   `SZ_PASSPHRASE` into the process environment.
+3. **Shell `export`** in a non-shared session — fine for local development.
+4. **`openclaw.json` (development/testing only).** This stores the passphrase
+   at rest in a config file. Use only on isolated dev machines and only when
+   the file is mode-0600 in an encrypted home directory:
+
+   ```json
+   {
+     "skills": {
+       "entries": {
+         "saturnzap": {
+           "enabled": true,
+           "env": { "SZ_PASSPHRASE": "your-dev-passphrase" }
+         }
+       }
+     }
+   }
+   ```
+   Do not use this path for wallets holding production funds.
 
 ## Security Model — Why This Skill Is Flagged "Suspicious" (And Why That's Correct)
 
