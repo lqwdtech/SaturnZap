@@ -57,8 +57,9 @@ sz pay --invoice "lnbc..." --max-sats 5000
 ## Setup
 
 ```bash
-# Install (one-time)
-uv tool install saturnzap
+# Install (one-time) — --find-links pulls the vendored ldk-node wheel from GitHub Releases
+uv tool install saturnzap \
+  --find-links https://github.com/lqwdtech/SaturnZap/releases/latest/download/
 
 # Set passphrase (required — encrypts the seed on disk)
 export SZ_PASSPHRASE="your-secure-passphrase"
@@ -90,6 +91,53 @@ Configure in `openclaw.json` to inject the passphrase automatically:
   }
 }
 ```
+
+## Security Model — Why This Skill Is Flagged "Suspicious" (And Why That's Correct)
+
+SaturnZap is a **self-custodial Lightning wallet**. The ClawHub security scanner
+correctly flags four behaviors that are inherent to any self-custodial wallet. If
+you're evaluating this skill, read this section before installing.
+
+**1. Installs a vendored wheel from GitHub Releases.** The `--find-links` flag pulls
+the `ldk-node` Python bindings wheel from the SaturnZap GitHub Releases page. This is
+because `ldk-node` is not yet published to PyPI. The wheel is built from the official
+LDK Node v0.7.0 source, vendored in-repo at `vendor/ldk_node-0.7.0-py3-none-any.whl`,
+and its SHA256 is pinned in `vendor/ldk_node.sha256` (verified in CI on every push).
+
+**2. Emits a BIP39 mnemonic on first init.** `sz init` prints the 24-word recovery
+phrase **exactly once**, to stdout, so the operator can back it up. It is never
+re-emitted by any other command. It is also never sent over the network. Losing the
+mnemonic means losing the funds; that is the self-custody tradeoff.
+
+**3. Passphrase injection via `openclaw.json`.** The passphrase decrypts the seed
+file (Fernet AES-128 + PBKDF2, 600k iterations). It must be available on every
+wallet operation. Two options:
+- **Environment variable (recommended):** `export SZ_PASSPHRASE=...` in your shell
+  profile or systemd unit. Never written to disk by SaturnZap.
+- **`openclaw.json`:** convenient for agents, but the passphrase lives in that file
+  at rest. Use only if the file itself is protected (`0600`, encrypted home dir,
+  etc.).
+
+**4. Optional systemd service.** `sz service install` is **optional**. It keeps the
+Lightning node running across reboots, which is necessary for payments to clear
+reliably. The service runs as the invoking user, writes state under
+`~/.local/share/saturnzap/<network>/`, and does not escalate privileges beyond
+opening port 9735 via UFW if UFW is active.
+
+**What this skill does NOT do:**
+- Transmit the seed or passphrase anywhere
+- Contact any server except Esplora (Bitcoin chain data) and peers you explicitly add
+- Run with elevated privileges
+- Modify any system config outside the Lightning listen port
+
+**Operator responsibilities:**
+- Back up the 24-word mnemonic offline before funding the wallet
+- Use a strong passphrase (12+ chars; minimum enforced at init)
+- Set `SZ_MCP_MAX_SPEND_SATS` to cap agent spending
+- Review `docs/security-scenarios.md` in the SaturnZap repo for the full threat model
+
+For the full security architecture, see
+[docs/security-scenarios.md](https://github.com/lqwdtech/SaturnZap/blob/main/docs/security-scenarios.md).
 
 ## Node Management
 
