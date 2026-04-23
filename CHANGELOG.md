@@ -10,6 +10,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [1.3.1] — 2026-04-23
+
+Install ergonomics. The plain `uv tool install saturnzap` still fails on a fresh host because `ldk-node==0.7.0` is not on PyPI; this release ships a one-line installer that hides the `--find-links` plumbing.
+
+### Added
+
+- **`install.sh` at the repo root.** A POSIX shell installer invoked as `curl -LsSf https://raw.githubusercontent.com/lqwdtech/SaturnZap/main/install.sh | sh`. It installs `uv` if missing, downloads the SaturnZap and `ldk-node` wheels from the latest GitHub Release into a temp directory, and runs `uv tool install saturnzap --find-links <tmpdir>`. Honours `SZ_VERSION` to pin a specific release tag. Cleans up its temp dir on exit. (Partial fix for agent feedback #18 — option C from the report.)
+
+### Changed
+
+- **README, getting-started, and the SaturnZap skill now lead with the one-liner.** The explicit `uv tool install --find-links ...` form is preserved as a manual fallback under a `<details>` block. The in-binary `ldk-node` import-error hint also points at the one-liner first.
+- **SaturnZap skill softening.** `metadata.openclaw.optionalEnv` now declares the secondary env vars (`SZ_MCP_MAX_SPEND_SATS`, `SZ_CLI_MAX_SPEND_SATS`, `SZ_NETWORK`, `SZ_REGION`, `SZ_MAINNET_CONFIRM`, `SZ_PRETTY`, `SZ_ALIAS`, `SZ_TRUSTED_PEERS_NO_RESERVE`, `SZ_ESPLORA_URL`) so OpenClaw sees them intentionally. The setup section recommends `sz init --backup-to ~/.saturnzap-mnemonic --no-mnemonic-stdout` for agent hosts. Passphrase guidance reordered: systemd `EnvironmentFile=` first, then secret stores, then shell `export`, with `openclaw.json` flagged as dev/testing only. The change flipped the OpenClaw Credentials verdict from warning to pass.
+
+### Notes
+
+- A proper PEP-503 simple index at `pkg.lqwd.ai/simple/` (option B from agent feedback #18) is tracked as a separate issue. That would let users install with a single `--index-url` flag rather than a hosted shell script.
+
+---
+
 ## [1.3.0] — 2026-04-23
 
 Agent-safety release. Addresses the highest-severity items from the LQWDClaw v2 testing pass: payments now wait for terminal status before returning ok, channel close accepts either id form, mainnet close requires confirmation, and `sz init` can keep the mnemonic out of stdout.

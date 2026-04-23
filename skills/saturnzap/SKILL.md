@@ -57,9 +57,12 @@ sz pay --invoice "lnbc..." --max-sats 5000
 ## Setup
 
 ```bash
-# Install (one-time) — --find-links pulls the vendored ldk-node wheel from GitHub Releases
-uv tool install saturnzap \
-  --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.0
+# Install (one-time) — one-line installer handles uv + the vendored ldk-node wheel
+curl -LsSf https://raw.githubusercontent.com/lqwdtech/SaturnZap/main/install.sh | sh
+
+# Or, if you prefer the explicit uv invocation:
+# uv tool install saturnzap \
+#   --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.1
 
 # Set passphrase (required — encrypts the seed on disk)
 export SZ_PASSPHRASE="your-secure-passphrase"

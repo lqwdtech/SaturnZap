@@ -10,28 +10,25 @@ funding it, and making your first payment.
 For an experienced operator on Ubuntu 22.04+:
 
 ```bash
-# 1. Install uv (skip if you already have it)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-source $HOME/.local/bin/env
+# 1. Install SaturnZap (handles uv + the vendored ldk-node wheel automatically)
+curl -LsSf https://raw.githubusercontent.com/lqwdtech/SaturnZap/main/install.sh | sh
 
-# 2. Install SaturnZap globally (pulls the vendored ldk-node wheel from GitHub Releases)
-uv tool install saturnzap \
-  --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.0
-
-# 3. Set a strong passphrase (encrypts the seed at rest)
+# 2. Set a strong passphrase (encrypts the seed at rest)
 export SZ_PASSPHRASE="your-secure-passphrase"
 
-# 4. Generate seed, start node, pick LQWD peer, open firewall port
+# 3. Generate seed, start node, pick LQWD peer, open firewall port
 sz setup --auto
 
-# 5. Keep the node running across reboots
+# 4. Keep the node running across reboots
 sz service install
 
-# 6. Share this URI with peers or LSPs
+# 5. Share this URI with peers or LSPs
 sz connect-info --check
 ```
 
-Back up the 24-word mnemonic printed by step 4. It is the only recovery path.
+Back up the 24-word mnemonic printed by step 3. It is the only recovery path.
+For agent hosts, run `sz init --backup-to ~/.saturnzap-mnemonic --no-mnemonic-stdout`
+before `sz setup --auto` to keep the mnemonic out of stdout.
 
 ---
 
@@ -67,13 +64,16 @@ sz --help
 ### From PyPI
 
 ```bash
-# ldk-node is not yet on PyPI — use --find-links for the vendored wheel
+# Quick path — one-line installer
+curl -LsSf https://raw.githubusercontent.com/lqwdtech/SaturnZap/main/install.sh | sh
+
+# Manual path: ldk-node is not yet on PyPI — use --find-links for the vendored wheel
 pip install saturnzap \
-  --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.0
+  --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.1
 
 # Or with uv
 uv pip install saturnzap \
-  --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.0
+  --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.1
 ```
 
 ---

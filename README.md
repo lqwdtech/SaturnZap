@@ -21,14 +21,26 @@
 </p>
 
 ```bash
-# One-click install (uv) — installs 'sz' and 'sz-mcp' globally
-uv tool install saturnzap --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.0
+# One-line install (handles uv + the vendored ldk-node wheel)
+curl -LsSf https://raw.githubusercontent.com/lqwdtech/SaturnZap/main/install.sh | sh
 
 export SZ_PASSPHRASE="your-secure-passphrase"
 sz setup --auto                  # Generate seed + start node + pick LQWD peer
 sz service install               # Keep the node running across reboots
 sz connect-info --check          # Share the URI with peers/LSPs
 ```
+
+<details>
+<summary>Or install with <code>uv tool</code> directly</summary>
+
+```bash
+uv tool install saturnzap \
+  --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.1
+```
+
+The `--find-links` flag is required because `ldk-node==0.7.0` is not yet on PyPI;
+the SaturnZap GitHub Release ships the vendored wheel.
+</details>
 
 ```bash
 sz pay --invoice lnbc1... --max-sats 500
@@ -614,11 +626,14 @@ sz --help
 ### Install from PyPI
 
 ```bash
-# ldk-node is not yet on PyPI — use --find-links to pull it from GitHub Releases
-pip install saturnzap --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.0
+# Quick path: one-line installer (handles uv + the vendored ldk-node wheel)
+curl -LsSf https://raw.githubusercontent.com/lqwdtech/SaturnZap/main/install.sh | sh
+
+# Manual path: ldk-node is not yet on PyPI — use --find-links to pull it from GitHub Releases
+pip install saturnzap --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.1
 
 # Or with uv
-uv pip install saturnzap --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.0
+uv pip install saturnzap --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.1
 ```
 
 ---

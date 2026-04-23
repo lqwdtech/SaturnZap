@@ -35,11 +35,13 @@ def main_cli() -> None:
 
         print(
             "error: ldk-node is not installed.\n"
-            "Install it from the vendored wheel:\n"
+            "Quickest path \u2014 the one-line installer handles uv + the wheel:\n"
+            "  curl -LsSf https://raw.githubusercontent.com"
+            "/lqwdtech/SaturnZap/main/install.sh | sh\n"
+            "Manual paths:\n"
             "  pip install vendor/ldk_node-0.7.0-py3-none-any.whl\n"
-            "Or install both saturnzap and ldk-node from GitHub Releases:\n"
             "  uv tool install saturnzap --find-links "
-            "https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.0",
+            "https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.1",
             file=sys.stderr,
         )
         raise SystemExit(1) from None
