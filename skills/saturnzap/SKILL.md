@@ -136,6 +136,16 @@ opening port 9735 via UFW if UFW is active.
 - Set `SZ_MCP_MAX_SPEND_SATS` to cap agent spending
 - Review `docs/security-scenarios.md` in the SaturnZap repo for the full threat model
 
+**About the VirusTotal verdict.** The ClawHub security scan page shows a VirusTotal
+"Suspicious" Code Insights verdict alongside **0/70 antivirus detections**. No
+antivirus engine has flagged anything in this skill. The "Suspicious" label comes
+from VirusTotal's LLM-based Code Insights reviewer and is triggered by the same four
+behaviors enumerated above — mnemonic emission, passphrase via environment, vendored
+wheel, optional systemd persistence — which are inherent to any self-custodial
+Lightning wallet. The Code Insights text itself acknowledges *"these actions are
+documented as inherent to the tool's function"*. Click "View report" on ClawHub to
+read the full analysis and see the 0/70 engine result.
+
 For the full security architecture, see
 [docs/security-scenarios.md](https://github.com/lqwdtech/SaturnZap/blob/main/docs/security-scenarios.md).
 
