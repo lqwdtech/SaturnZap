@@ -14,11 +14,12 @@ minor release on `main`. Older versions are not patched.
 
 **Please do not open public GitHub issues for security vulnerabilities.**
 
-Report security issues privately via one of the following channels:
+Report security issues privately via GitHub Security Advisories:
 
-- **GitHub Security Advisory** (preferred): open a draft advisory at
+- Open a draft advisory at
   <https://github.com/lqwdtech/SaturnZap/security/advisories/new>
-- **Email**: security@saturnzap.dev (PGP key on request)
+- This keeps the report private until a coordinated disclosure and lets us
+  collaborate on the fix in the same thread.
 
 Include:
 
