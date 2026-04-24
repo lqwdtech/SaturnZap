@@ -143,6 +143,48 @@ Channel issues?
 
 ---
 
+## Becoming a Public Routing Node
+
+By default, every channel SaturnZap opens on mainnet is announced to the public
+gossip graph if — and only if — your node looks reachable from the internet.
+This makes the agent a public routing node automatically, earning routing fees
+and contributing to the network's liquidity, with zero configuration.
+
+The decision is surfaced on every `sz channels open` and `sz liquidity
+request-inbound` response:
+
+```json
+{
+  "announce": true,
+  "announce_reason": "reachable"
+}
+```
+
+Possible `announce_reason` values:
+
+| Reason | What happened |
+|---|---|
+| `reachable` | Auto-gate probed the public internet and your port is open → announced. |
+| `unreachable` | Auto-gate probed and your port is closed → kept private, with a hint. |
+| `reachability_unknown` | Probe service was down → kept private (fail-safe). |
+| `non_mainnet_default` | Signet/testnet → always private, no probe. |
+| `explicit` | You passed `--announce` or `--no-announce` on the CLI. |
+| `config_always` / `config_never` | Set via `[node].announce_default` in `config.toml`. |
+
+**When `announce_reason` is `unreachable`**, the response includes a `warnings`
+array with this hint: *"Node not reachable from the internet. Run `sz
+connect-info --check` to verify, then open port 9735 on your cloud firewall.
+Tor hidden service support is on the roadmap."*
+
+`sz setup --auto` also emits an `announce_decision` step in its structured
+log, so an agent's first-run JSON contains the routing-node verdict
+immediately.
+
+To opt out per-channel: `sz channels open --no-announce ...`. To opt out
+permanently: `sz config set node.announce_default never`.
+
+---
+
 ## Proactive Warnings
 
 SaturnZap includes contextual warnings in payment and balance responses when action

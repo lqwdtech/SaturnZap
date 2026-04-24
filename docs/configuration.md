@@ -56,6 +56,7 @@ auto_open_enabled = false
 alias = "my-agent-node"
 listen_port = 9735
 min_confirms = 3
+announce_default = "auto"
 trusted_peers_no_reserve = ["03abc...", "03def..."]
 ```
 
@@ -64,6 +65,7 @@ trusted_peers_no_reserve = ["03abc...", "03def..."]
 | `node.alias` | string | `saturnzap-<sha256(mnemonic)[:6]>` | Lightning node alias, shown to peers and LSP dashboards. Max 32 chars. |
 | `node.listen_port` | int | `9735` (mainnet), `9736` (signet), `9737` (testnet) | Lightning P2P port. |
 | `node.min_confirms` | int | `3` | Channel confirmation threshold (advisory; LDK Node 0.7 does not yet support per-channel override). |
+| `node.announce_default` | string | `"auto"` | Channel-announce policy. `"auto"` probes external reachability and announces iff the node is reachable from the internet (mainnet only; signet/testnet always private). `"always"` forces announce on every open. `"never"` keeps every channel private. Explicit `--announce`/`--no-announce` CLI flags override this setting. |
 | `node.trusted_peers_no_reserve` | list | `[]` | User-added trusted peers for anchor-reserve waiver and 0-conf channels. Combined with the LQWD fleet on mainnet. |
 
 Edit via `sz config`:

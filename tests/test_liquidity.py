@@ -328,3 +328,50 @@ def test_liquidity_status_cli_mocked():
     data = json.loads(result.output)
     assert data["status"] == "ok"
     assert data["total_channels"] == 0
+
+
+def test_request_inbound_uses_announce_gate():
+    """request_inbound consults decide_announce and surfaces the decision."""
+    decision = {"announce": True, "reason": "reachable", "warnings": []}
+    target = {
+        "pubkey": "02lqwd",
+        "address": "1.2.3.4:9735",
+        "alias": "LQWD-Test",
+        "region": "TEST",
+    }
+    with (
+        patch("saturnzap.liquidity.lqwd.get_nearest", return_value=target),
+        patch("saturnzap.node.connect_peer"),
+        patch("saturnzap.node.decide_announce", return_value=decision) as gate,
+        patch("saturnzap.node.open_channel", return_value="ucid_inbound") as opener,
+    ):
+        result = liquidity.request_inbound(500_000)
+
+    gate.assert_called_once_with(None)
+    # announce= flag is forwarded to node.open_channel.
+    _, kwargs = opener.call_args
+    assert kwargs["announce"] is True
+    assert result["announce"] is True
+    assert result["announce_reason"] == "reachable"
+    assert "warnings" not in result
+
+
+def test_request_inbound_unreachable_emits_hint():
+    decision = {"announce": False, "reason": "unreachable", "warnings": ["hint-text"]}
+    target = {
+        "pubkey": "02lqwd",
+        "address": "1.2.3.4:9735",
+        "alias": "LQWD-Test",
+        "region": "TEST",
+    }
+    with (
+        patch("saturnzap.liquidity.lqwd.get_nearest", return_value=target),
+        patch("saturnzap.node.connect_peer"),
+        patch("saturnzap.node.decide_announce", return_value=decision),
+        patch("saturnzap.node.open_channel", return_value="ucid_inbound"),
+    ):
+        result = liquidity.request_inbound(500_000)
+
+    assert result["announce"] is False
+    assert result["announce_reason"] == "unreachable"
+    assert result["warnings"] == ["hint-text"]

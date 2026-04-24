@@ -167,7 +167,14 @@ def load_liquidity_config() -> dict[str, Any]:
 
 _NODE_DEFAULTS: dict[str, Any] = {
     "min_confirms": 3,
+    # Channel announcement policy. "auto" probes the node's reachability and
+    # announces only when the node looks reachable from the internet. "always"
+    # forces announce on every open. "never" forces unannounced. Explicit
+    # CLI/MCP flags override this.
+    "announce_default": "auto",
 }
+
+VALID_ANNOUNCE_DEFAULTS = ("auto", "always", "never")
 
 
 def load_node_config() -> dict[str, Any]:

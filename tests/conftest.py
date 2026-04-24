@@ -46,3 +46,17 @@ def _reset_module_singletons():
     _node._node = None  # noqa: SLF001
     _node._ipc_mode = False  # noqa: SLF001
     _output._pretty = False  # noqa: SLF001
+
+
+@pytest.fixture(autouse=True)
+def _no_external_reachability_probe(monkeypatch):
+    """Keep tests offline by short-circuiting external IP detection.
+
+    ``check_port_reachable`` returns ``None`` early when no host can be
+    resolved, so this is enough to prevent any real HTTP probes via
+    ``decide_announce``. Tests that exercise ``_probe_check_host_net``
+    directly are unaffected because they pass an explicit host argument.
+    """
+    from saturnzap import node as _node
+
+    monkeypatch.setattr(_node, "_detect_external_ip", lambda *a, **kw: None)

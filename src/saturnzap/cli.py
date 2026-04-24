@@ -323,6 +323,20 @@ def setup(
             "port": info.get("port"),
         })
 
+    # Step 4b (--auto only): Surface the channel-announce gate decision
+    # so the operator can see whether their node will join the gossip
+    # graph as a public routing node, and act on the hint if not.
+    if auto:
+        decision = node_mod.decide_announce(None)
+        announce_step: dict[str, object] = {
+            "step": "announce_decision",
+            "announce": decision["announce"],
+            "reason": decision["reason"],
+        }
+        if decision["warnings"]:
+            announce_step["hint"] = decision["warnings"][0]
+        steps.append(announce_step)
+
     # Step 5 (--auto only): Request inbound liquidity from LQWD
     if auto:
         from saturnzap import liquidity
@@ -988,9 +1002,16 @@ def channels_open(
         typer.Option("--amount-sats", help="Channel capacity in sats"),
     ] = 100_000,
     announce: Annotated[
-        bool,
-        typer.Option(help="Announce channel to the network"),
-    ] = False,
+        bool | None,
+        typer.Option(
+            "--announce/--no-announce",
+            help=(
+                "Announce channel to the network. Omit to use the auto "
+                "gate: announce iff the node is reachable from the "
+                "internet (mainnet only)."
+            ),
+        ),
+    ] = None,
     yes: Annotated[
         bool,
         typer.Option("--yes", "-y", help="Skip mainnet confirmation prompt."),
@@ -1016,15 +1037,21 @@ def channels_open(
         )
         return  # unreachable, satisfies type checker
 
+    decision = node_mod.decide_announce(announce)
     ucid = node_mod.open_channel(
-        node_id, address, amount_sats, announce=announce,
+        node_id, address, amount_sats, announce=decision["announce"],
     )
-    output.ok(
-        user_channel_id=ucid,
-        counterparty=node_id,
-        amount_sats=amount_sats,
-        message="Channel open initiated.",
-    )
+    response: dict[str, object] = {
+        "user_channel_id": ucid,
+        "counterparty": node_id,
+        "amount_sats": amount_sats,
+        "announce": decision["announce"],
+        "announce_reason": decision["reason"],
+        "message": "Channel open initiated.",
+    }
+    if decision["warnings"]:
+        response["warnings"] = decision["warnings"]
+    output.ok(**response)
 
 
 @channels_app.command("close")

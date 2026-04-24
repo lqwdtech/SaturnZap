@@ -448,6 +448,101 @@ def _probe_check_host_net(host: str, port: int) -> bool | None:
     return None
 
 
+# ── Announce decision ────────────────────────────────────────────
+
+
+# Hint string for the unreachable path. Locked by plan.
+_UNREACHABLE_HINT = (
+    "Node not reachable from the internet. Run `sz connect-info --check` "
+    "to verify, then open port 9735 on your cloud firewall. Tor hidden "
+    "service support is on the roadmap."
+)
+
+
+def decide_announce(
+    explicit: bool | None,
+    network: str | None = None,
+) -> dict:
+    """Resolve the channel-announce decision.
+
+    Returns a dict with three fields:
+        announce (bool): final decision.
+        reason (str): one of ``explicit``, ``reachable``, ``unreachable``,
+            ``reachability_unknown``, ``non_mainnet_default``,
+            ``config_always``, ``config_never``.
+        warnings (list[str]): user-visible hints, e.g. when an explicit
+            announce request looks unreachable, or when an auto-decided
+            private channel could be public if the node were reachable.
+
+    Behavior:
+        - ``explicit=True``: honored. Probes reachability anyway so we can
+          warn the user if their node looks unreachable.
+        - ``explicit=False``: honored. No probe.
+        - ``explicit=None`` (CLI default → use the gate):
+            - ``[node].announce_default = "always"`` → announce.
+            - ``[node].announce_default = "never"`` → private.
+            - On signet/testnet (``announce_default = "auto"``) → private.
+            - On mainnet (``announce_default = "auto"``) → probe reachability,
+              announce if reachable.
+    """
+    from saturnzap.config import VALID_ANNOUNCE_DEFAULTS, load_node_config
+
+    if network is None:
+        network = get_network()
+
+    # Explicit overrides win regardless of network or config.
+    if explicit is True:
+        warnings: list[str] = []
+        # Probe reachability so we can warn if the user is announcing into
+        # a void. On mainnet only — signet/testnet "explicit announce" is
+        # usually deliberate dev work and warnings are just noise.
+        if network == "bitcoin":
+            reachable = check_port_reachable()
+            if reachable is False or reachable is None:
+                warnings.append(
+                    "You asked to announce but your node doesn't look "
+                    "reachable from the internet — peers won't find you."
+                )
+        return {"announce": True, "reason": "explicit", "warnings": warnings}
+
+    if explicit is False:
+        return {"announce": False, "reason": "explicit", "warnings": []}
+
+    # explicit is None — consult config and network.
+    node_cfg = load_node_config()
+    raw_default = str(node_cfg.get("announce_default", "auto")).lower()
+    if raw_default not in VALID_ANNOUNCE_DEFAULTS:
+        raw_default = "auto"
+
+    if raw_default == "always":
+        return {"announce": True, "reason": "config_always", "warnings": []}
+    if raw_default == "never":
+        return {"announce": False, "reason": "config_never", "warnings": []}
+
+    # raw_default == "auto"
+    if network != "bitcoin":
+        return {
+            "announce": False,
+            "reason": "non_mainnet_default",
+            "warnings": [],
+        }
+
+    reachable = check_port_reachable()
+    if reachable is True:
+        return {"announce": True, "reason": "reachable", "warnings": []}
+    if reachable is False:
+        return {
+            "announce": False,
+            "reason": "unreachable",
+            "warnings": [_UNREACHABLE_HINT],
+        }
+    return {
+        "announce": False,
+        "reason": "reachability_unknown",
+        "warnings": [_UNREACHABLE_HINT],
+    }
+
+
 # ── Helpers ──────────────────────────────────────────────────────
 
 

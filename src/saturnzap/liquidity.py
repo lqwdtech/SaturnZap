@@ -231,22 +231,34 @@ def request_inbound(
     push_sats = max(amount_sats // 100, 1000)
     channel_sats = amount_sats + push_sats
 
+    # Resolve the announce decision via the auto gate. Agents on reachable
+    # mainnet nodes get an announced channel by default, joining the gossip
+    # graph and becoming routing nodes. Unreachable nodes fall back to a
+    # private channel with an actionable hint in the warnings list.
+    decision = node.decide_announce(None)
+
     ucid = node.open_channel(
         target["pubkey"],
         target["address"],
         channel_sats,
         push_msat=push_sats * 1000,
+        announce=decision["announce"],
     )
 
-    return {
+    result: dict = {
         "user_channel_id": ucid,
         "lqwd_node": target["alias"],
         "lqwd_region": target["region"],
         "channel_capacity_sats": channel_sats,
         "inbound_sats": amount_sats,
         "fee_sats": push_sats,
+        "announce": decision["announce"],
+        "announce_reason": decision["reason"],
         "message": (
             f"Inbound liquidity request sent to {target['alias']}. "
             "Channel will be usable after on-chain confirmation."
         ),
     }
+    if decision["warnings"]:
+        result["warnings"] = decision["warnings"]
+    return result

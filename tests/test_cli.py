@@ -144,6 +144,59 @@ def test_channels_open_requires_peer_or_lsp():
     assert result.exit_code != 0
 
 
+def test_channels_open_includes_announce_reason(mock_node):
+    """Default invocation surfaces announce + announce_reason in JSON."""
+    decision = {"announce": True, "reason": "reachable", "warnings": []}
+    with (
+        patch("saturnzap.node._require_node", return_value=mock_node),
+        patch("saturnzap.node.decide_announce", return_value=decision) as gate,
+        patch("saturnzap.node.open_channel", return_value="ucid_x"),
+    ):
+        result = runner.invoke(app, [
+            "--network", "signet",
+            "channels", "open",
+            "--peer", "02pk@1.2.3.4:9735",
+            "--amount-sats", "100000",
+        ])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["announce"] is True
+    assert data["announce_reason"] == "reachable"
+    assert "warnings" not in data
+    # Tri-state gate: explicit was None.
+    gate.assert_called_once_with(None)
+
+
+def test_channels_open_explicit_announce_unreachable_warns(mock_node):
+    decision = {
+        "announce": True,
+        "reason": "explicit",
+        "warnings": [
+            "You asked to announce but your node doesn't look reachable "
+            "from the internet — peers won't find you."
+        ],
+    }
+    with (
+        patch("saturnzap.node._require_node", return_value=mock_node),
+        patch("saturnzap.node.decide_announce", return_value=decision) as gate,
+        patch("saturnzap.node.open_channel", return_value="ucid_y"),
+    ):
+        result = runner.invoke(app, [
+            "--network", "signet",
+            "channels", "open",
+            "--peer", "02pk@1.2.3.4:9735",
+            "--amount-sats", "100000",
+            "--announce",
+        ])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["announce"] is True
+    assert data["announce_reason"] == "explicit"
+    assert "warnings" in data
+    assert "reachable" in data["warnings"][0]
+    gate.assert_called_once_with(True)
+
+
 def test_service_help():
     result = runner.invoke(app, ["service", "--help"])
     assert result.exit_code == 0
@@ -614,3 +667,28 @@ def test_setup_auto_includes_connect_info_step(monkeypatch, mock_node):
     ci_step = next(s for s in data["steps"] if s["step"] == "connect_info")
     assert ci_step["host"] == "5.6.7.8"
     assert "uri" in ci_step
+
+
+def test_setup_auto_includes_announce_decision_step(monkeypatch, mock_node):
+    """setup --auto surfaces the announce gate as its own step entry."""
+    monkeypatch.setenv("SZ_PASSPHRASE", "testpw")
+    mock_node.onchain_payment.return_value.new_address.return_value = "tb1qaddr"
+
+    decision = {
+        "announce": False,
+        "reason": "unreachable",
+        "warnings": ["Node not reachable from the internet. ..."],
+    }
+    with (
+        patch("saturnzap.node.build_node", return_value=mock_node),
+        patch("saturnzap.node.decide_announce", return_value=decision),
+        patch("saturnzap.liquidity.request_inbound", return_value={"channel": "info"}),
+    ):
+        result = runner.invoke(app, ["setup", "--auto"])
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    ann = next(s for s in data["steps"] if s["step"] == "announce_decision")
+    assert ann["announce"] is False
+    assert ann["reason"] == "unreachable"
+    assert "hint" in ann

@@ -142,7 +142,7 @@ serve()  # blocks, communicates over stdio
 | Tool | Parameters | Description |
 |---|---|---|
 | `list_channels` | — | List all channels with capacity info. |
-| `open_channel` | `node_id`, `address`, `amount_sats`, `announce` | Open a channel. Returns `CHANNEL_REJECTED` if peer rejects (e.g. below minimum size). |
+| `open_channel` | `node_id`, `address`, `amount_sats`, `announce` | Open a channel. `announce=None` (default) uses the auto gate (announce iff the node is reachable from the internet on mainnet). Pass `True`/`False` to override. Returns `announce` and `announce_reason` in the response. Returns `CHANNEL_REJECTED` if peer rejects (e.g. below minimum size). |
 | `close_channel` | `channel_id`, `counterparty_node_id`, `force` | Close a channel. |
 
 ### Payments

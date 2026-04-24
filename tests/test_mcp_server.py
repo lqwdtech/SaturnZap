@@ -189,3 +189,42 @@ def test_tool_names_snake_case():
     registered = mcp_server.mcp._tool_manager._tools.keys()
     for name in registered:
         assert re.match(r'^[a-z][a-z0-9_]*$', name), f"Tool '{name}' not snake_case"
+
+
+def test_open_channel_tool_tri_state_announce():
+    """open_channel tool with announce=None invokes the auto gate."""
+    from unittest.mock import patch
+
+    decision = {"announce": False, "reason": "unreachable", "warnings": ["hint"]}
+    with (
+        patch("saturnzap.node.decide_announce", return_value=decision) as gate,
+        patch("saturnzap.node.open_channel", return_value="ucid_z"),
+    ):
+        result = mcp_server.open_channel("02pk", "1.2.3.4:9735", 100_000)
+
+    assert result["status"] == "ok"
+    assert result["user_channel_id"] == "ucid_z"
+    assert result["announce"] is False
+    assert result["announce_reason"] == "unreachable"
+    assert result["warnings"] == ["hint"]
+    gate.assert_called_once_with(None)
+
+
+def test_open_channel_tool_explicit_announce_passes_through():
+    from unittest.mock import patch
+
+    decision = {"announce": True, "reason": "explicit", "warnings": []}
+    with (
+        patch("saturnzap.node.decide_announce", return_value=decision) as gate,
+        patch("saturnzap.node.open_channel", return_value="ucid_a") as opener,
+    ):
+        result = mcp_server.open_channel("02pk", "1.2.3.4:9735", 100_000, announce=True)
+
+    gate.assert_called_once_with(True)
+    # The resolved bool is what's passed to node.open_channel, not the raw input.
+    opener.assert_called_once_with(
+        "02pk", "1.2.3.4:9735", 100_000, announce=True,
+    )
+    assert result["announce"] is True
+    assert "warnings" not in result
+

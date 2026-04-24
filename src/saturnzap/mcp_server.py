@@ -316,7 +316,7 @@ def open_channel(
     node_id: str,
     address: str,
     amount_sats: int,
-    announce: bool = False,
+    announce: bool | None = None,
 ) -> dict[str, Any]:
     """Open a Lightning channel to a peer.
 
@@ -325,13 +325,28 @@ def open_channel(
         address: Peer's host:port.
         amount_sats: Channel capacity in satoshis.
         announce: Whether to announce the channel to the network.
+            ``None`` (default) uses the auto gate: announce iff the node
+            is reachable from the internet (mainnet only). ``True`` /
+            ``False`` are explicit overrides.
     """
     from saturnzap import node
 
-    ucid = node.open_channel(node_id, address, amount_sats, announce=announce)
-    return {"status": "ok", "user_channel_id": ucid,
-            "counterparty": node_id, "amount_sats": amount_sats,
-            "message": "Channel open initiated."}
+    decision = node.decide_announce(announce)
+    ucid = node.open_channel(
+        node_id, address, amount_sats, announce=decision["announce"],
+    )
+    response: dict[str, Any] = {
+        "status": "ok",
+        "user_channel_id": ucid,
+        "counterparty": node_id,
+        "amount_sats": amount_sats,
+        "announce": decision["announce"],
+        "announce_reason": decision["reason"],
+        "message": "Channel open initiated.",
+    }
+    if decision["warnings"]:
+        response["warnings"] = decision["warnings"]
+    return response
 
 
 @_tool()

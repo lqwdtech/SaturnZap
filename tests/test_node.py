@@ -489,6 +489,130 @@ def test_open_channel_rejected_no_log(mock_ldk_node, tmp_path):
     assert "Check" in exc_info.value.error_message
 
 
+# ── decide_announce ──────────────────────────────────────────────
+
+
+def test_decide_announce_explicit_true_reachable():
+    """Explicit True is honored, no warning when reachable."""
+    with (
+        patch("saturnzap.node.get_network", return_value="bitcoin"),
+        patch("saturnzap.node.check_port_reachable", return_value=True),
+    ):
+        result = node.decide_announce(True)
+    assert result == {"announce": True, "reason": "explicit", "warnings": []}
+
+
+def test_decide_announce_explicit_true_unreachable_warns():
+    """Explicit True with unreachable node still announces but warns."""
+    with (
+        patch("saturnzap.node.get_network", return_value="bitcoin"),
+        patch("saturnzap.node.check_port_reachable", return_value=False),
+    ):
+        result = node.decide_announce(True)
+    assert result["announce"] is True
+    assert result["reason"] == "explicit"
+    assert len(result["warnings"]) == 1
+    assert "reachable" in result["warnings"][0]
+
+
+def test_decide_announce_explicit_false():
+    """Explicit False is honored, no probe."""
+    with patch("saturnzap.node.check_port_reachable") as probe:
+        result = node.decide_announce(False)
+    probe.assert_not_called()
+    assert result == {"announce": False, "reason": "explicit", "warnings": []}
+
+
+def test_decide_announce_auto_mainnet_reachable():
+    with (
+        patch("saturnzap.node.get_network", return_value="bitcoin"),
+        patch("saturnzap.node.check_port_reachable", return_value=True),
+        patch(
+            "saturnzap.config.load_node_config",
+            return_value={"announce_default": "auto"},
+        ),
+    ):
+        result = node.decide_announce(None)
+    assert result == {"announce": True, "reason": "reachable", "warnings": []}
+
+
+def test_decide_announce_auto_mainnet_unreachable_includes_hint():
+    with (
+        patch("saturnzap.node.get_network", return_value="bitcoin"),
+        patch("saturnzap.node.check_port_reachable", return_value=False),
+        patch(
+            "saturnzap.config.load_node_config",
+            return_value={"announce_default": "auto"},
+        ),
+    ):
+        result = node.decide_announce(None)
+    assert result["announce"] is False
+    assert result["reason"] == "unreachable"
+    assert any("connect-info --check" in w for w in result["warnings"])
+
+
+def test_decide_announce_auto_mainnet_unknown_includes_hint():
+    with (
+        patch("saturnzap.node.get_network", return_value="bitcoin"),
+        patch("saturnzap.node.check_port_reachable", return_value=None),
+        patch(
+            "saturnzap.config.load_node_config",
+            return_value={"announce_default": "auto"},
+        ),
+    ):
+        result = node.decide_announce(None)
+    assert result["announce"] is False
+    assert result["reason"] == "reachability_unknown"
+    assert result["warnings"]
+
+
+def test_decide_announce_signet_default_private_no_probe():
+    """Signet/testnet on auto stays private without probing."""
+    with (
+        patch("saturnzap.node.get_network", return_value="signet"),
+        patch("saturnzap.node.check_port_reachable") as probe,
+        patch(
+            "saturnzap.config.load_node_config",
+            return_value={"announce_default": "auto"},
+        ),
+    ):
+        result = node.decide_announce(None)
+    probe.assert_not_called()
+    assert result == {
+        "announce": False,
+        "reason": "non_mainnet_default",
+        "warnings": [],
+    }
+
+
+def test_decide_announce_config_always_no_probe():
+    with (
+        patch("saturnzap.node.get_network", return_value="bitcoin"),
+        patch("saturnzap.node.check_port_reachable") as probe,
+        patch(
+            "saturnzap.config.load_node_config",
+            return_value={"announce_default": "always"},
+        ),
+    ):
+        result = node.decide_announce(None)
+    probe.assert_not_called()
+    assert result == {"announce": True, "reason": "config_always", "warnings": []}
+
+
+def test_decide_announce_config_never_no_probe():
+    with (
+        patch("saturnzap.node.get_network", return_value="bitcoin"),
+        patch("saturnzap.node.check_port_reachable") as probe,
+        patch(
+            "saturnzap.config.load_node_config",
+            return_value={"announce_default": "never"},
+        ),
+    ):
+        result = node.decide_announce(None)
+    probe.assert_not_called()
+    assert result == {"announce": False, "reason": "config_never", "warnings": []}
+
+
 # ── close_channel / force_close ──────────────────────────────────
 
 

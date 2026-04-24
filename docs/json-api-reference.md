@@ -275,9 +275,30 @@ or all channels critically low. Omitted when everything is healthy.
   "user_channel_id": "ucid_abc123...",
   "counterparty": "03992d76a7ea...",
   "amount_sats": 100000,
+  "announce": true,
+  "announce_reason": "reachable",
   "message": "Channel open initiated."
 }
 ```
+
+The `announce` field is the resolved decision (true = the channel is announced
+to the public gossip graph; false = private). The `announce_reason` field
+explains how the decision was made:
+
+| Reason | Meaning |
+|---|---|
+| `explicit` | User passed `--announce` or `--no-announce` on the command line. |
+| `reachable` | Auto-gate: node looks reachable from the internet → announced. |
+| `unreachable` | Auto-gate: external port probe says closed → kept private. |
+| `reachability_unknown` | Auto-gate: probe service unavailable → kept private. |
+| `non_mainnet_default` | Auto-gate on signet/testnet → kept private (do not pollute dev gossip). |
+| `config_always` | `[node].announce_default = "always"` in `config.toml`. |
+| `config_never` | `[node].announce_default = "never"` in `config.toml`. |
+
+When the auto-gate keeps a channel private because the node isn't reachable,
+or when an explicit `--announce` is requested but the node looks unreachable,
+the response also includes a `warnings` array with an actionable hint pointing
+at `sz connect-info --check` and the cloud firewall.
 
 ### `sz channels close`
 
@@ -446,9 +467,17 @@ channel capacity is low after the L402 invoice payment.
   "channel_capacity_sats": 505000,
   "inbound_sats": 500000,
   "fee_sats": 5000,
+  "announce": true,
+  "announce_reason": "reachable",
   "message": "Inbound liquidity request sent to LQWD-Canada. ..."
 }
 ```
+
+The `announce` and `announce_reason` fields work the same as `sz channels open` —
+the inbound channel is announced to the public gossip graph when the auto-gate
+detects the node is reachable from the internet, making the agent a public
+routing node by default. See [`sz channels open`](#sz-channels-open) for the
+full table of `announce_reason` values.
 
 ---
 
