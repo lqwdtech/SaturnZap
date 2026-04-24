@@ -8,6 +8,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Channels are announced by default when the node is reachable from the internet.** `sz channels open` and `sz liquidity request-inbound` on mainnet now run a public-internet reachability probe and announce the channel to the gossip graph when the probe succeeds, turning agents into public routing nodes automatically. Unreachable nodes keep channels private and the response includes a hint pointing at `sz connect-info --check` and the cloud firewall. Signet/testnet always default to private to avoid polluting dev gossip.
+- **Tri-state `--announce/--no-announce` flag** on `sz channels open` overrides the auto-gate. The same applies to the MCP `open_channel` tool's `announce` parameter (`None` = auto, `True`/`False` = explicit).
+- **New `[node].announce_default` config knob** (`auto` / `always` / `never`). Edit via `sz config set node.announce_default never` to opt out permanently.
+- **`sz setup --auto` surfaces the announce decision** as a new `announce_decision` step in its structured log, including a `hint` field on the unreachable path.
+- **Response shape additions.** `sz channels open` and `sz liquidity request-inbound` now return `announce` (resolved bool) and `announce_reason` (one of `explicit`, `reachable`, `unreachable`, `reachability_unknown`, `non_mainnet_default`, `config_always`, `config_never`) alongside the existing fields. Backward compatible — existing fields unchanged.
+
 ---
 
 ## [1.3.1] — 2026-04-23

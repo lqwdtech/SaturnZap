@@ -281,6 +281,9 @@ sz channels open --lsp lqwd --amount-sats 100000
 # Open a channel via a specific LQWD region (e.g. Japan)
 sz channels open --lsp lqwd --region JP --amount-sats 200000
 
+# Force a private channel (default is auto-announce when reachable on mainnet)
+sz channels open --lsp lqwd --amount-sats 100000 --no-announce
+
 # Close a channel cooperatively
 sz channels close --channel-id "abc123" --counterparty "03abc..."
 
@@ -292,6 +295,8 @@ sz channels wait --channel-id "abc123" --timeout 300
 ```
 
 **Minimum channel sizes:** LQWD nodes require at least 2,000,000 sats per channel. If the peer rejects, `sz` returns a `CHANNEL_REJECTED` error with the reason (e.g. "below min chan size").
+
+**Public routing by default:** On mainnet, channels are announced to the gossip graph when the node is reachable from the internet, making the agent a public routing node automatically. The response includes `announce` and `announce_reason` (`reachable`, `unreachable`, `non_mainnet_default`, `explicit`, etc.). On `unreachable`, a `warnings` array suggests running `sz connect-info --check` and opening port 9735 on the cloud firewall. Override per-channel with `--announce`/`--no-announce`, or globally via `sz config set node.announce_default never`.
 
 ## Peers
 

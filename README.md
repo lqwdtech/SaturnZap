@@ -353,6 +353,9 @@ sz channels open --lsp lqwd --region JP --amount-sats 100000
 # Skip mainnet confirmation (for automation)
 sz channels open --lsp lqwd --amount-sats 100000 --yes
 
+# Force a private channel (default is auto-announce when reachable)
+sz channels open --lsp lqwd --amount-sats 100000 --no-announce
+
 sz channels close --channel-id <id>
 sz channels close --channel-id <id> --force
 
@@ -652,7 +655,9 @@ auto-peer with nearest LQWD node, JSON output infrastructure.
 `sz channels`, `sz peers`, `sz address`, `sz balance`
 
 Open channels to any node. LQWD LSP-assisted channel opens. LQWD node directory
-embedded (18 regions, timezone-based auto-selection). Channel list and close.
+embedded (18 regions, timezone-based auto-selection). Channels are announced to
+the public gossip graph by default when the node is reachable from the internet,
+turning agents into public routing nodes automatically. Channel list and close.
 
 ### Phase 3 — Payments ✅
 
