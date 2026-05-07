@@ -66,6 +66,120 @@ Configure `sz mcp` in your MCP client (see `docs/mcp-server.md`). Then call tool
 
 ---
 
+## Free Mainnet Channel via LQWDClaw
+
+If you don't have on-chain bitcoin to fund a channel, **LQWDClaw** (operated by LQWD
+Technologies) gives every registered agent a free 20,000-sat mainnet channel,
+operator-funded. ~1,000 sats are pushed to your side as immediate spendable balance,
+the remainder is inbound liquidity. One grant per agent. No credit card, no KYC.
+
+This is the recommended onboarding path for an agent that wants to make L402
+payments on mainnet without funding a wallet first.
+
+### When to use this path
+
+- You need a working mainnet Lightning channel and have no on-chain funds.
+- You only need to make small L402 payments (the channel push is ~1k sats spendable —
+  enough for many L402 calls but not large transfers).
+- You don't mind your node being publicly announced. SaturnZap's reachability
+  auto-gate announces channels when the node is reachable from the internet.
+
+### When NOT to use this path
+
+- You need >1k sats of immediate outbound (use `sz channels open --lsp lqwd
+  --amount-sats 100000` with on-chain funds instead).
+- You're on signet or testnet — LQWDClaw is mainnet only.
+- Your node isn't publicly reachable — the faucet only opens *announced* channels,
+  which require reachability.
+
+### The flow — five steps, all mainnet
+
+```bash
+# 1. Initialize SaturnZap with the LQWDClaw preset.
+#    Sets a readable node alias and trusts LQWD's LND pubkey.
+#    Use sz init, NOT sz setup --auto — the latter peers with a different
+#    LQWD node (LSPS2 JIT) which is a separate onboarding flow.
+export SZ_PASSPHRASE="your-passphrase"
+sz init --for-lqwd-faucet \
+  --backup-to ~/.saturnzap-mnemonic --no-mnemonic-stdout
+
+# 2. Persist the node so it stays reachable.
+sz service install
+
+# 3. Get your node's connection URI and verify it's publicly reachable.
+sz connect-info --check
+# Look for "reachable": true in the JSON response. If false, open port 9735
+# on your cloud firewall before continuing.
+
+# 4. Peer-connect to LQWD BEFORE registering. Skipping this step risks
+#    counting toward the 3-failure ban if LQWD's ConnectPeer call fails.
+LQWD_URI=$(curl -s https://api.lqwdclaw.bot/v1/discovery \
+  | jq -r .data.lqwd_node.uri)
+sz peers add "$LQWD_URI"
+
+# 5. (Optional, free) Pre-flight reachability check from LQWD's side.
+#    No rate-limit cost. Confirms LQWD can dial you back before you
+#    consume a registration slot.
+PUBKEY=$(sz connect-info | jq -r .pubkey)
+NODE_URI=$(sz connect-info | jq -r .uri)
+curl -s -X POST https://api.lqwdclaw.bot/v1/internal/accounts/reachability-check \
+  -H "Content-Type: application/json" \
+  -d "{\"pubkey\":\"$PUBKEY\",\"node_uri\":\"$NODE_URI\"}"
+# Expect "reachable": true. If false, fix the underlying issue and re-run.
+
+# 6. Register. One POST, returns an api_key (prefix lqwd_) and a status URL.
+curl -s -X POST https://api.lqwdclaw.bot/v1/internal/accounts/register \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"name\": \"my-agent-$(date +%s)\",
+    \"pubkey\": \"$PUBKEY\",
+    \"node_uri\": \"$NODE_URI\"
+  }"
+# Save the api_key — it cannot be retrieved later, only rotated.
+# Channel opens asynchronously; expect 1–6 blocks for confirmation.
+
+# 7. Poll channel status. Channel-faucet channels from LQWD are 0-conf on
+#    mainnet (LQWD is a trusted peer by default), so is_usable usually
+#    flips true within seconds of the registration response.
+sz channels list
+```
+
+### MCP alternative
+
+LQWDClaw also exposes an MCP server at `https://api.lqwdclaw.bot/v1/mcp`. After
+`sz init --for-lqwd-faucet`, an MCP-capable agent can call `lqwd_register` and
+`lqwd_check_channel_status` over MCP instead of curl, using the Bearer api_key for
+authenticated calls. See [LQWDClaw `/for-agents`](https://lqwdclaw.bot/for-agents)
+for the full MCP tool list.
+
+### Failure modes worth knowing
+
+| Symptom | Cause | Recovery |
+|---|---|---|
+| `Channel request rejected` / "Node alias is not configured" | The preset sets an alias automatically; if missing, set one with `sz config set node.alias <name>` and restart | `POST /v1/internal/channel/retry` with Bearer api_key |
+| `reachable: false` from pre-flight | Firewall, wrong port, or NAT | Open port 9735 on cloud firewall, re-run `sz connect-info --check`, retry |
+| Pubkey banned (3 failures) | Repeated `ConnectPeer` failures during registration | Fix reachability, then ask an LQWD operator to clear the ban |
+| Want to retry a failed open | Latest grant in `status: failed` | `POST /v1/internal/channel/retry` — preserves api_key, doesn't burn /register rate limit |
+
+### What you get and don't get
+
+| You get | You don't get |
+|---|---|
+| 20k-sat announced channel to LQWD's hub | A routing tier (channel is too small to forward profitably) |
+| ~1,000 sats of immediate spendable outbound | Multiple grants (one per agent) |
+| One hop to the entire Lightning Network via LQWD | A guarantee — channels can fail to open for reachability reasons |
+| 0-conf usability (LQWD is a trusted peer on mainnet) | Tier upgrades on demand (operator-granted only in v1) |
+
+### Limits
+
+- **3 registrations per IP per hour** (rate limit, not per-pubkey)
+- **3 channel-open failures per pubkey** triggers an auto-ban (use the pre-flight
+  check to avoid this)
+- **One grant per agent** — additional channels require on-chain funds and
+  `sz channels open`
+
+---
+
 ## Common Workflows
 
 ### Pay for API Access (L402)

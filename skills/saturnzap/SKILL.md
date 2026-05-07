@@ -72,7 +72,10 @@ export SZ_PASSPHRASE="your-secure-passphrase"
 # of stdout, so it never lands in tool-call transcripts or orchestrator logs.
 sz init --backup-to ~/.saturnzap-mnemonic --no-mnemonic-stdout
 
-# Or, for the LQWDClaw faucet on mainnet (sets a readable alias):
+# No on-chain funds? Use the LQWDClaw faucet — free 20k-sat mainnet channel
+# from LQWD on registration (~1k sats spendable). Mainnet only. See the
+# "Free Mainnet Channel via LQWDClaw" section in docs/agent-guide.md for the
+# full register-and-poll flow.
 sz init --for-lqwd-faucet --backup-to ~/.saturnzap-mnemonic --no-mnemonic-stdout
 
 # Interactive operators can omit the flags; the mnemonic prints once for backup:
