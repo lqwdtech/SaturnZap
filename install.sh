@@ -78,8 +78,8 @@ SZ_NUM="${SZ_VERSION#v}"
 
 # --- 3. download wheels into a temp dir -------------------------------------
 
-TMPDIR=$(mktemp -d -t saturnzap-install.XXXXXX)
-trap 'rm -rf "$TMPDIR"' EXIT INT TERM
+WORKDIR=$(mktemp -d -t saturnzap-install.XXXXXX)
+trap 'rm -rf "$WORKDIR"' EXIT INT TERM
 
 # Try to fetch the explicit asset list so we pick up whatever ldk_node wheel
 # is shipped with this release (in case the version pin changes later).
@@ -95,7 +95,7 @@ fi
 for asset in $ASSETS; do
     log "downloading ${asset}"
     curl -sSL --fail \
-        -o "${TMPDIR}/${asset}" \
+        -o "${WORKDIR}/${asset}" \
         "${GITHUB_DL}/${SZ_VERSION}/${asset}" \
         || err "failed to download ${asset}"
 done
@@ -116,7 +116,7 @@ if [ "$OS" = "Darwin" ]; then
     # Determine the LDK version from the wheel name we already downloaded so
     # we build the matching upstream tag. The release ships a single
     # py3-none-any wheel for ldk_node.
-    LDK_LINUX_WHEEL=$(ls "${TMPDIR}"/ldk_node-*-py3-none-any.whl 2>/dev/null | head -n1)
+    LDK_LINUX_WHEEL=$(ls "${WORKDIR}"/ldk_node-*-py3-none-any.whl 2>/dev/null | head -n1)
     [ -n "$LDK_LINUX_WHEEL" ] || err "no ldk_node wheel found in release assets"
     LDK_VERSION=$(basename "$LDK_LINUX_WHEEL" | sed -n 's/^ldk_node-\([0-9][0-9.]*\).*/\1/p')
     [ -n "$LDK_VERSION" ] || err "could not parse LDK version from $LDK_LINUX_WHEEL"
@@ -133,7 +133,9 @@ if [ "$OS" = "Darwin" ]; then
     command -v cargo >/dev/null 2>&1 \
         || err "cargo still not in PATH; add ~/.cargo/bin to PATH and re-run"
 
-    BUILD_DIR="${TMPDIR}/ldk-node-build"
+    BUILD_DIR="${WORKDIR}/ldk-node-build"
+    OUTDIR="${WORKDIR}/wheels-out"
+    mkdir -p "$OUTDIR"
     log "cloning lightningdevkit/ldk-node@v${LDK_VERSION}"
     git clone --depth 1 --branch "v${LDK_VERSION}" \
         https://github.com/lightningdevkit/ldk-node.git "$BUILD_DIR" \
@@ -148,7 +150,7 @@ if [ "$OS" = "Darwin" ]; then
 
     # Build the wheel in an isolated venv so we don't depend on whatever
     # setuptools the user has globally.
-    BUILD_VENV="${TMPDIR}/buildenv"
+    BUILD_VENV="${WORKDIR}/buildenv"
     log "creating build venv at ${BUILD_VENV}"
     python3 -m venv "$BUILD_VENV"
     "$BUILD_VENV/bin/pip" install --quiet --upgrade pip setuptools wheel build \
@@ -156,14 +158,17 @@ if [ "$OS" = "Darwin" ]; then
 
     log "building ldk_node wheel"
     "$BUILD_VENV/bin/python" -m build --wheel --no-isolation \
-        --outdir "$TMPDIR" "$BUILD_DIR/bindings/python" \
+        --outdir "$OUTDIR" "$BUILD_DIR/bindings/python" \
         || err "ldk_node wheel build failed"
 
-    # Drop the Linux wheel so uv resolves the freshly-built one.
+    # Drop the Linux wheel and copy in the freshly-built one.
     rm -f "$LDK_LINUX_WHEEL"
 
-    NEW_LDK_WHEEL=$(ls "${TMPDIR}"/ldk_node-*.whl 2>/dev/null | head -n1)
+    NEW_LDK_WHEEL=$(find "$OUTDIR" "$BUILD_DIR/bindings/python/dist" \
+        -maxdepth 2 -name 'ldk_node-*.whl' -print 2>/dev/null | head -n1)
     [ -n "$NEW_LDK_WHEEL" ] || err "build produced no ldk_node wheel"
+    cp "$NEW_LDK_WHEEL" "$WORKDIR/" \
+        || err "failed to copy built wheel into $WORKDIR"
     log "macOS wheel built: $(basename "$NEW_LDK_WHEEL")"
 fi
 
@@ -174,9 +179,9 @@ if [ -n "${SZ_PREFIX:-}" ]; then
     PREFIX_ARG="--prefix ${SZ_PREFIX}"
 fi
 
-log "running: uv tool install saturnzap==${SZ_NUM} --find-links ${TMPDIR}"
+log "running: uv tool install saturnzap==${SZ_NUM} --find-links ${WORKDIR}"
 # shellcheck disable=SC2086 # PREFIX_ARG is intentionally unquoted to allow empty expansion
-uv tool install ${PREFIX_ARG} "saturnzap==${SZ_NUM}" --find-links "${TMPDIR}"
+uv tool install ${PREFIX_ARG} "saturnzap==${SZ_NUM}" --find-links "${WORKDIR}"
 
 # --- 5. done ---------------------------------------------------------------
 
