@@ -34,7 +34,10 @@ before `sz setup --auto` to keep the mnemonic out of stdout.
 
 ## Prerequisites
 
-- **OS**: Linux (Ubuntu 22.04+ recommended)
+- **OS**: Linux (Ubuntu 22.04+ recommended) or macOS (Apple Silicon and Intel).
+  On macOS, the one-line installer builds the `ldk-node` Python wheel from source
+  on first install (one-time, ~5–10 minutes). Rust is installed automatically
+  via rustup if missing.
 - **Python**: 3.12 or later
 - **Package manager**: [uv](https://docs.astral.sh/uv/) (recommended) or pip
 

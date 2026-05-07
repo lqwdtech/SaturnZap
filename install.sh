@@ -23,6 +23,10 @@
 #   `ldk-node` is not yet published to PyPI, so a plain `uv tool install
 #   saturnzap` fails to resolve dependencies. This installer hides the
 #   `--find-links` plumbing behind a single command.
+#
+#   On macOS the release wheel is Linux-only, so we additionally build the
+#   ldk-node wheel from upstream source (one-time, ~5–10 min). This branch
+#   is removed once ldk-node ships on PyPI.
 
 set -eu
 
@@ -39,6 +43,8 @@ need() {
 
 need curl
 need tar  # only used if we ever need the sdist; keep guard for clear errors
+
+OS=$(uname -s)
 
 # --- 1. ensure uv -----------------------------------------------------------
 
@@ -93,6 +99,73 @@ for asset in $ASSETS; do
         "${GITHUB_DL}/${SZ_VERSION}/${asset}" \
         || err "failed to download ${asset}"
 done
+
+# --- 3a. macOS: replace the Linux ldk-node wheel with one built from source ---
+#
+# The ldk_node-*-py3-none-any.whl shipped on the SaturnZap release bundles a
+# Linux .so. On macOS we ignore it and build a matching .dylib-bearing wheel
+# from upstream. When ldk-node lands on PyPI this whole branch goes away.
+
+if [ "$OS" = "Darwin" ]; then
+    log "macOS detected — building the ldk-node wheel from source"
+    log "(this happens once per install and takes ~5–10 minutes)"
+
+    need git
+    need python3
+
+    # Determine the LDK version from the wheel name we already downloaded so
+    # we build the matching upstream tag. The release ships a single
+    # py3-none-any wheel for ldk_node.
+    LDK_LINUX_WHEEL=$(ls "${TMPDIR}"/ldk_node-*-py3-none-any.whl 2>/dev/null | head -n1)
+    [ -n "$LDK_LINUX_WHEEL" ] || err "no ldk_node wheel found in release assets"
+    LDK_VERSION=$(basename "$LDK_LINUX_WHEEL" | sed -n 's/^ldk_node-\([0-9][0-9.]*\).*/\1/p')
+    [ -n "$LDK_VERSION" ] || err "could not parse LDK version from $LDK_LINUX_WHEEL"
+    log "matching ldk-node release: v${LDK_VERSION}"
+
+    # Rust toolchain (required by upstream's build script).
+    if ! command -v cargo >/dev/null 2>&1; then
+        log "Rust toolchain not found — installing via rustup"
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+            | sh -s -- -y --default-toolchain stable --profile minimal
+        # shellcheck disable=SC1091
+        . "$HOME/.cargo/env"
+    fi
+    command -v cargo >/dev/null 2>&1 \
+        || err "cargo still not in PATH; add ~/.cargo/bin to PATH and re-run"
+
+    BUILD_DIR="${TMPDIR}/ldk-node-build"
+    log "cloning lightningdevkit/ldk-node@v${LDK_VERSION}"
+    git clone --depth 1 --branch "v${LDK_VERSION}" \
+        https://github.com/lightningdevkit/ldk-node.git "$BUILD_DIR" \
+        >/dev/null 2>&1 \
+        || err "failed to clone ldk-node@v${LDK_VERSION}"
+
+    log "running uniffi_bindgen_generate_python.sh (Rust compile happens here)"
+    (
+        cd "$BUILD_DIR"
+        ./scripts/uniffi_bindgen_generate_python.sh
+    ) || err "ldk-node build script failed"
+
+    # Build the wheel in an isolated venv so we don't depend on whatever
+    # setuptools the user has globally.
+    BUILD_VENV="${TMPDIR}/buildenv"
+    log "creating build venv at ${BUILD_VENV}"
+    python3 -m venv "$BUILD_VENV"
+    "$BUILD_VENV/bin/pip" install --quiet --upgrade pip setuptools wheel build \
+        || err "failed to install build dependencies in the build venv"
+
+    log "building ldk_node wheel"
+    "$BUILD_VENV/bin/python" -m build --wheel --no-isolation \
+        --outdir "$TMPDIR" "$BUILD_DIR/bindings/python" \
+        || err "ldk_node wheel build failed"
+
+    # Drop the Linux wheel so uv resolves the freshly-built one.
+    rm -f "$LDK_LINUX_WHEEL"
+
+    NEW_LDK_WHEEL=$(ls "${TMPDIR}"/ldk_node-*.whl 2>/dev/null | head -n1)
+    [ -n "$NEW_LDK_WHEEL" ] || err "build produced no ldk_node wheel"
+    log "macOS wheel built: $(basename "$NEW_LDK_WHEEL")"
+fi
 
 # --- 4. install with uv -----------------------------------------------------
 
