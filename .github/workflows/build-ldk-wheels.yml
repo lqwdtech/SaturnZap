@@ -1,0 +1,139 @@
+name: Build LDK Node wheels
+
+# Manually-triggered workflow that builds platform-specific wheels of the
+# LDK Node Python bindings and attaches them to a GitHub Release.
+#
+# Why this exists: ldk-node is not yet on PyPI. SaturnZap installs it via
+# `--find-links` against a GitHub Release. The upstream repo only ships
+# a Linux x86_64 wheel; this workflow extends coverage to Apple Silicon,
+# Intel Mac, and Linux ARM so Mac-based agent developers can install
+# SaturnZap with the same one-liner as Linux users.
+#
+# When LDK Node lands on PyPI, delete this workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ldk_node_ref:
+        description: "lightningdevkit/ldk-node git ref (tag, branch, or sha)"
+        required: true
+        default: "v0.7.0"
+        type: string
+      release_tag:
+        description: "GitHub Release tag to attach wheels to (e.g. v1.3.1)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x86_64
+            runner: ubuntu-24.04
+            rust_target: x86_64-unknown-linux-gnu
+            maturin_args: ""
+          - target: linux-aarch64
+            runner: ubuntu-24.04-arm
+            rust_target: aarch64-unknown-linux-gnu
+            maturin_args: ""
+          - target: macos-arm64
+            runner: macos-14
+            rust_target: aarch64-apple-darwin
+            maturin_args: ""
+          - target: macos-x86_64
+            runner: macos-13
+            rust_target: x86_64-apple-darwin
+            maturin_args: ""
+
+    steps:
+      - name: Check out SaturnZap (for context only)
+        uses: actions/checkout@v4
+
+      - name: Check out lightningdevkit/ldk-node
+        uses: actions/checkout@v4
+        with:
+          repository: lightningdevkit/ldk-node
+          ref: ${{ inputs.ldk_node_ref }}
+          path: ldk-node
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Install build dependencies
+        run: python -m pip install --upgrade pip maturin
+
+      # The ldk-node Python bindings live under bindings/python and use
+      # uniffi + maturin. Adjust the cwd if upstream restructures.
+      - name: Build wheel
+        working-directory: ldk-node/bindings/python
+        run: maturin build --release --strip --target ${{ matrix.rust_target }} ${{ matrix.maturin_args }}
+
+      - name: Locate wheel
+        id: locate
+        shell: bash
+        working-directory: ldk-node/bindings/python
+        run: |
+          wheel=$(ls target/wheels/ldk_node-*.whl | head -n1)
+          echo "Found wheel: $wheel"
+          echo "wheel_path=$PWD/$wheel" >> "$GITHUB_OUTPUT"
+          echo "wheel_name=$(basename "$wheel")" >> "$GITHUB_OUTPUT"
+
+      - name: Compute SHA256
+        shell: bash
+        run: |
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "${{ steps.locate.outputs.wheel_path }}" > "${{ steps.locate.outputs.wheel_name }}.sha256"
+          else
+            shasum -a 256 "${{ steps.locate.outputs.wheel_path }}" > "${{ steps.locate.outputs.wheel_name }}.sha256"
+          fi
+          # Rewrite the path in the checksum file to be the bare filename so
+          # consumers can verify with `sha256sum -c` next to the wheel.
+          sed -i.bak "s|.*  .*|$(awk '{print $1}' "${{ steps.locate.outputs.wheel_name }}.sha256")  ${{ steps.locate.outputs.wheel_name }}|" "${{ steps.locate.outputs.wheel_name }}.sha256"
+          rm -f "${{ steps.locate.outputs.wheel_name }}.sha256.bak"
+          cat "${{ steps.locate.outputs.wheel_name }}.sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ldk-node-${{ matrix.target }}
+          path: |
+            ${{ steps.locate.outputs.wheel_path }}
+            ${{ steps.locate.outputs.wheel_name }}.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+  attach:
+    name: Attach wheels to release
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download all wheels
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la dist/
+
+      - name: Upload to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ inputs.release_tag }}" dist/*.whl dist/*.sha256 \
+            --repo "${{ github.repository }}" \
+            --clobber
