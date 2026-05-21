@@ -8,6 +8,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+_No changes yet._
+
+---
+
+## [1.3.2] — 2026-05-21
+
+Maintenance + distribution release. Rolls up the announce-by-default routing-node feature that was queued in `[Unreleased]`, ships macOS install hardening, and lands CI infrastructure for automated PyPI + MCP Registry publishing on tag push. No breaking changes; no API changes to the CLI or MCP tool surface.
+
+### Added
+
+- **CI auto-publishes to the MCP Registry on tag push.** `.github/workflows/publish.yml` gains four steps after the PyPI publish: jq-syncs `server.json` version with the pushed tag, installs `mcp-publisher`, authenticates via GitHub OIDC (no secrets — reuses the existing `id-token: write` permission used for PyPI Trusted Publishing), and publishes the updated `server.json` to `registry.modelcontextprotocol.io`. Includes a 5×30s retry loop for PyPI CDN propagation lag. Future `v*` tag pushes auto-update both PyPI and the MCP Registry in one shot.
+- **Cross-platform LDK Node wheel build workflow.** New CI workflow builds platform-specific `ldk-node` wheels and uploads them as workflow artifacts, supporting the macOS branch of the one-line installer below.
+- **README + onboarding guide now document the LQWDClaw faucet path.** Agents using SaturnZap on a fresh host can register with the LQWD faucet to receive an initial inbound channel + credits, accelerating their first L402 payment.
+
 ### Changed
 
 - **Channels are announced by default when the node is reachable from the internet.** `sz channels open` and `sz liquidity request-inbound` on mainnet now run a public-internet reachability probe and announce the channel to the gossip graph when the probe succeeds, turning agents into public routing nodes automatically. Unreachable nodes keep channels private and the response includes a hint pointing at `sz connect-info --check` and the cloud firewall. Signet/testnet always default to private to avoid polluting dev gossip.
@@ -15,6 +29,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - **New `[node].announce_default` config knob** (`auto` / `always` / `never`). Edit via `sz config set node.announce_default never` to opt out permanently.
 - **`sz setup --auto` surfaces the announce decision** as a new `announce_decision` step in its structured log, including a `hint` field on the unreachable path.
 - **Response shape additions.** `sz channels open` and `sz liquidity request-inbound` now return `announce` (resolved bool) and `announce_reason` (one of `explicit`, `reachable`, `unreachable`, `reachability_unknown`, `non_mainnet_default`, `config_always`, `config_never`) alongside the existing fields. Backward compatible — existing fields unchanged.
+- **macOS one-line installer now builds `ldk-node` from source.** The vendored `ldk-node==0.7.0` wheel in our GitHub Releases is Linux-only; macOS hosts previously couldn't install via the one-liner. The installer now detects macOS and runs a from-source build. Linux behaviour unchanged.
+- **`install.sh` TMPDIR handling hardened.** Renamed the shell variable so it no longer clobbers the system `TMPDIR` env var (which Python tooling reads); also broadened the wheel-discovery glob to tolerate variant naming. Fixes the "no wheel found" failure mode on fresh macOS hosts.
+- **MCP Registry description rewritten for keyword search.** `server.json` description repacked within the registry's 100-char limit to include the high-signal search terms agents query for (`L402`, `Bitcoin`, `LDK`, `MCP`, alongside the existing `Lightning`, `wallet`, `non-custodial`). No behavioural change; the entry surfaces better via `registry.modelcontextprotocol.io/v0/servers?search=...` and any aggregator that indexes the registry.
+- **PyPI publish step now sets `skip-existing: true`.** Re-running the publish workflow on an already-published version (via `workflow_dispatch` or a re-pushed tag during incident response) now succeeds gracefully instead of hard-failing at the duplicate-version check. PyPI's "no overwrite" immutability is preserved.
+
+### Notes
+
+- This is the first release to be published through the new auto-publish CI. The next release (this one) will be both the artifact AND the validation of the CI path end-to-end.
+- The `mcp-publisher` GitHub OIDC auth path was dress-rehearsed via `workflow_dispatch` on v1.3.1 and confirmed working — the only failure on that run was the expected "cannot publish duplicate version" rejection from the MCP Registry, which is correct behaviour.
+- Item #18 from the agent feedback (publishing `ldk-node` to PyPI directly) remains an upstream constraint. The MCPB / Claude Desktop one-click distribution path is blocked on this and will land separately.
 
 ---
 

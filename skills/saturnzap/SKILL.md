@@ -62,7 +62,7 @@ curl -LsSf https://raw.githubusercontent.com/lqwdtech/SaturnZap/main/install.sh 
 
 # Or, if you prefer the explicit uv invocation:
 # uv tool install saturnzap \
-#   --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.1
+#   --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.2
 
 # Set passphrase (required — encrypts the seed on disk)
 export SZ_PASSPHRASE="your-secure-passphrase"
