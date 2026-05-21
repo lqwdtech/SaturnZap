@@ -35,7 +35,7 @@ sz connect-info --check          # Share the URI with peers/LSPs
 
 ```bash
 uv tool install saturnzap \
-  --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.1
+  --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.2
 ```
 
 The `--find-links` flag is required because `ldk-node==0.7.0` is not yet on PyPI;
@@ -633,10 +633,10 @@ sz --help
 curl -LsSf https://raw.githubusercontent.com/lqwdtech/SaturnZap/main/install.sh | sh
 
 # Manual path: ldk-node is not yet on PyPI — use --find-links to pull it from GitHub Releases
-pip install saturnzap --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.1
+pip install saturnzap --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.2
 
 # Or with uv
-uv pip install saturnzap --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.1
+uv pip install saturnzap --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.2
 ```
 
 ---

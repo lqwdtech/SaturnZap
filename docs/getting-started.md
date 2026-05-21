@@ -72,11 +72,11 @@ curl -LsSf https://raw.githubusercontent.com/lqwdtech/SaturnZap/main/install.sh 
 
 # Manual path: ldk-node is not yet on PyPI — use --find-links for the vendored wheel
 pip install saturnzap \
-  --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.1
+  --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.2
 
 # Or with uv
 uv pip install saturnzap \
-  --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.1
+  --find-links https://github.com/lqwdtech/SaturnZap/releases/expanded_assets/v1.3.2
 ```
 
 ---
