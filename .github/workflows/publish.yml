@@ -54,7 +54,7 @@ jobs:
 
       - name: Upload ldk-node wheel to GitHub Release
         if: github.event_name == 'push'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             vendor/ldk_node-0.7.0-py3-none-any.whl
