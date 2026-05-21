@@ -60,3 +60,42 @@ jobs:
             vendor/ldk_node-0.7.0-py3-none-any.whl
             dist/*.whl
             dist/*.tar.gz
+
+      # ─── MCP Registry publish ───────────────────────────────────────────
+      # Mirrors the PyPI publish gate: real tag push OR workflow_dispatch
+      # with target=pypi. Skipped for testpypi runs.
+      # OIDC auth uses the existing `id-token: write` permission — no secrets.
+      # PyPI CDN propagation lag is handled by retrying with backoff, since
+      # mcp-publisher reads the package README to verify the mcp-name claim.
+
+      - name: Sync server.json version with tag
+        if: github.event_name == 'push'
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp
+          mv server.tmp server.json
+          echo "server.json version set to $VERSION"
+          cat server.json
+
+      - name: Install mcp-publisher
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Authenticate to MCP Registry (GitHub OIDC)
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish server to MCP Registry
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if ./mcp-publisher publish; then
+              echo "Published to MCP Registry on attempt $attempt"
+              exit 0
+            fi
+            echo "Attempt $attempt failed (likely PyPI CDN lag); waiting 30s..."
+            sleep 30
+          done
+          echo "MCP Registry publish failed after 5 attempts"
+          exit 1
